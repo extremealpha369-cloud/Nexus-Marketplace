@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
+
+@theme {
+  --font-syne: "Syne", sans-serif;
+  --font-dm: "DM Sans", sans-serif;
+  --font-playfair: "Playfair Display", serif;
+  --font-outfit: "Outfit", sans-serif;
+  --font-fira: "Fira Code", monospace;
+
+  --color-nexus-bg: #0a0a0f;
+  --color-nexus-surface: #111118;
+  --color-nexus-surface2: #1a1a26;
+  --color-nexus-purple: #7c3aed;
+  --color-nexus-purple-light: #a855f7;
+  --color-nexus-text: #f0eeff;
+  --color-nexus-text-muted: #7b7a9a;
+}
+
+@layer base {
+  body {
+    @apply bg-nexus-bg text-nexus-text font-dm;
+  }
+}
+
+/* Shared Background Grid */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(120,80,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,80,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Home Page Specific Styles */
+:root {
+  --bg: #08080f;
+  --bg2: #0d0d18;
+  --surface: #111120;
+  --surface2: #18182a;
+  --border: rgba(130, 80, 255, 0.14);
+  --border-hover: rgba(168, 85, 247, 0.4);
+  --purple: #7c3aed;
+  --purple-mid: #9333ea;
+  --purple-light: #a855f7;
+  --purple-pale: #c084fc;
+  --glow: rgba(124, 58, 237, 0.35);
+  --text: #f0eeff;
+  --text-muted: #7b7a9a;
+  --text-dim: #4a4a6a;
+}
+
+.home-page {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* Animations */
+@keyframes logoPulse {
+  0%,100% { box-shadow: 0 0 15px rgba(124,58,237,0.4); }
+  50% { box-shadow: 0 0 30px rgba(124,58,237,0.7), 0 0 50px rgba(168,85,247,0.3); }
+}
+
+@keyframes dotPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+@keyframes fadeDown { 
+  from { opacity: 0; transform: translateY(-20px); } 
+  to { opacity: 1; transform: translateY(0); } 
+}
+
+@keyframes scrollBounce { 
+  0%,100% { transform: rotate(45deg) translateY(0); } 
+  50% { transform: rotate(45deg) translateY(5px); } 
+}
+
+@keyframes barGrow { from { transform: scaleY(0.5); } to { transform: scaleY(1); } }
+@keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Utility Classes for Home */
+.gradient-text {
+  background: linear-gradient(135deg, var(--purple-pale), var(--purple-light), #e879f9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
