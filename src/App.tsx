@@ -16,38 +16,50 @@ import UpdatePassword from './pages/UpdatePassword';
 export default function App() {
   const [view, setView] = useState<'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact' | 'update-password'>('home');
   const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) setView('dashboard');
+      setLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth State Change:", event, session?.user?.email);
       setSession(session);
+      setLoading(false);
+      
       if (event === 'PASSWORD_RECOVERY') {
         setView('update-password');
-      } else if (session) {
-        // If user just logged in, go to dashboard
-        // But if they are already on a public page, maybe stay there?
-        // For now, let's redirect to dashboard on login
-        if (view === 'login' || view === 'signup') {
-          setView('dashboard');
-        }
-      } else {
-        // If logged out, go home
-        if (view === 'dashboard' || view === 'favourites' || view === 'update-password') {
-          setView('home');
-        }
+      } else if (event === 'SIGNED_IN') {
+        setView('dashboard');
+      } else if (event === 'SIGNED_OUT') {
+        setView('home');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [view]);
+  }, []);
+
+  // Route protection
+  useEffect(() => {
+    if (loading) return;
+
+    const protectedRoutes = ['dashboard', 'favourites', 'update-password'];
+    const authRoutes = ['login', 'signup'];
+
+    if (!session && protectedRoutes.includes(view)) {
+      setView('login');
+    }
+
+    if (session && authRoutes.includes(view)) {
+      setView('dashboard');
+    }
+  }, [view, session, loading]);
 
   return (
     <div className="min-h-screen bg-nexus-bg text-nexus-text selection:bg-nexus-purple/30">
