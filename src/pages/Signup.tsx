@@ -223,14 +223,18 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
+      const redirectTo = window.location.origin;
+      console.log(`Attempting ${provider} signup with redirect: ${redirectTo}`);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin,
+          redirectTo,
         }
       });
       if (error) throw error;
     } catch (err: any) {
+      console.error("Social Signup Error:", err);
       setError(err.message || `Failed to sign up with ${provider}`);
     }
   };
