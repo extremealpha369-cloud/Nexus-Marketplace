@@ -23,6 +23,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      if (session) setView('dashboard');
     });
 
     // Listen for auth changes
@@ -36,7 +37,14 @@ export default function App() {
       if (event === 'PASSWORD_RECOVERY') {
         setView('update-password');
       } else if (event === 'SIGNED_IN') {
+        // Only redirect to dashboard if we are on a public/auth page
+        // This prevents overriding specific views if needed, but for now strict redirect is safer
         setView('dashboard');
+        
+        // Clear hash if present (clean URL)
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       } else if (event === 'SIGNED_OUT') {
         setView('home');
       }
@@ -68,7 +76,7 @@ export default function App() {
       ) : view === 'signup' ? (
         <Signup onSwitch={() => setView('login')} onBack={() => setView('home')} />
       ) : view === 'dashboard' ? (
-        <Dashboard onNavigate={(page) => setView(page as any)} />
+        <Dashboard onNavigate={(page) => setView(page as any)} session={session} />
       ) : view === 'buy' ? (
         <BuyPage onNavigate={(page) => setView(page as any)} />
       ) : view === 'favourites' ? (

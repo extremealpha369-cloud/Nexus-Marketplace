@@ -1055,9 +1055,9 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
 // ─────────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────────
-const USER_ID = "USR-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+// const USER_ID = "USR-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
-export default function Dashboard({ onNavigate }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void }) {
+export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void, session: any }) {
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
   const [search, setSearch] = useState("");
@@ -1073,6 +1073,13 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: 'login' |
   const [toast, setToast] = useState<{ msg: string; type?: "success" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const [copied, setCopied] = useState(false);
+
+  // User Info from Session
+  const user = session?.user;
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const userId = user?.id?.slice(0, 8).toUpperCase() || "UNKNOWN";
+  const userRole = "Seller · Verified"; // Mock role for now
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     clearTimeout(toastTimer.current);
@@ -1181,11 +1188,11 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: 'login' |
           </div>
 
           <div className="sidebar-profile">
-            <div className="profile-avatar-large">NC</div>
+            <div className="profile-avatar-large">{userInitials}</div>
             <div className="profile-text">
-              <div className="profile-name">Noah Carter</div>
-              <div className="profile-role">Seller · Verified</div>
-              <div className="profile-id">ID: {USER_ID}</div>
+              <div className="profile-name">{userName}</div>
+              <div className="profile-role">{userRole}</div>
+              <div className="profile-id">ID: {userId}</div>
               <div className="profile-stats">
                 <div className="profile-stat"><div className="profile-stat-val">{products.length}</div><div className="profile-stat-label">Listed</div></div>
                 <div className="profile-stat"><div className="profile-stat-val">{products.filter(p=>p.visibility==="public").length}</div><div className="profile-stat-label">Public</div></div>
@@ -1214,9 +1221,9 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: 'login' |
 
           <div className="sidebar-bottom">
             <div className="user-pill">
-              <div className="user-avatar">NC</div>
+              <div className="user-avatar">{userInitials}</div>
               <div className="user-info">
-                <span>Noah Carter</span>
+                <span>{userName}</span>
                 <small>Seller</small>
               </div>
             </div>
