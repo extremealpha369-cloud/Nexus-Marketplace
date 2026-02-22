@@ -223,7 +223,12 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
-      const redirectTo = window.location.origin;
+      // Use the exact production URL if in production, otherwise localhost
+      const isProd = window.location.hostname !== 'localhost';
+      const redirectTo = isProd 
+        ? 'https://nexus-marketplace-smoky.vercel.app'
+        : window.location.origin;
+
       console.log(`Attempting ${provider} signup with redirect: ${redirectTo}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
