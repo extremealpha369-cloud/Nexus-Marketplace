@@ -201,7 +201,8 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
     
     try {
       const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+      // Redirect to root to avoid 404s
+      const OAUTH_CALLBACK_URL = `${APP_URL}`;
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -234,7 +235,8 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
     try {
       // Use a stable app URL env, not implicit origin only.
       const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+      // Redirect to root to avoid 404s on Vercel if rewrites fail
+      const OAUTH_CALLBACK_URL = `${APP_URL}`;
 
       console.log(`Attempting ${provider} signup with redirect: ${OAUTH_CALLBACK_URL}`);
 
@@ -437,7 +439,7 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
               <button style={s.switchBtn} onClick={async () => { 
                 // Resend confirmation email logic
                 const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-                const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+                const OAUTH_CALLBACK_URL = `${APP_URL}`;
                 
                 await supabase.auth.resend({
                   type: 'signup',

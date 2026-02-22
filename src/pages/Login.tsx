@@ -280,7 +280,8 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
     try {
       // Use a stable app URL env, not implicit origin only.
       const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+      // Redirect to root to avoid 404s on Vercel if rewrites fail
+      const OAUTH_CALLBACK_URL = `${APP_URL}`;
         
       console.log(`Attempting ${provider} login with redirect: ${OAUTH_CALLBACK_URL}`);
       
@@ -305,7 +306,8 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
     
     try {
       const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-      const RESET_PASSWORD_URL = `${APP_URL}/update-password`;
+      // Redirect to root to avoid 404s. App.tsx handles PASSWORD_RECOVERY event.
+      const RESET_PASSWORD_URL = `${APP_URL}`;
       console.log(`Sending reset email to ${resetEmail} with redirect: ${RESET_PASSWORD_URL}`);
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
