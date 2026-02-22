@@ -232,11 +232,21 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
+<<<<<<< HEAD
       // Use a stable app URL env, not implicit origin only.
       const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
       const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
 
       console.log(`Attempting ${provider} signup with redirect: ${OAUTH_CALLBACK_URL}`);
+=======
+      // Use the exact production URL if in production, otherwise localhost
+      const isProd = window.location.hostname !== 'localhost';
+      const redirectTo = isProd 
+        ? 'https://nexus-marketplace-smoky.vercel.app'
+        : window.location.origin;
+
+      console.log(`Attempting ${provider} signup with redirect: ${redirectTo}`);
+>>>>>>> 951769eae12345307efd45540344dbca57c990f7
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
