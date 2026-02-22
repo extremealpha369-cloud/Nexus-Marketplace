@@ -266,7 +266,11 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
       // App.tsx handles navigation via onAuthStateChange
     } catch (err: any) {
       console.error("Login Error:", err);
-      setLoginError(err.message || "Failed to sign in.");
+      if (err.message && err.message.includes("Email not confirmed")) {
+        setLoginError("Please verify your email address before signing in.");
+      } else {
+        setLoginError(err.message || "Failed to sign in.");
+      }
     } finally {
       setLoginLoading(false);
     }
@@ -274,13 +278,16 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
-      const redirectTo = window.location.origin;
-      console.log(`Attempting ${provider} login with redirect: ${redirectTo}`);
+      // Use a stable app URL env, not implicit origin only.
+      const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+        
+      console.log(`Attempting ${provider} login with redirect: ${OAUTH_CALLBACK_URL}`);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo,
+          redirectTo: OAUTH_CALLBACK_URL,
         }
       });
       if (error) throw error;
@@ -297,11 +304,12 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
     setResetLoading(true);
     
     try {
-      const redirectTo = window.location.origin + '/update-password';
-      console.log(`Sending reset email to ${resetEmail} with redirect: ${redirectTo}`);
+      const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+      const RESET_PASSWORD_URL = `${APP_URL}/update-password`;
+      console.log(`Sending reset email to ${resetEmail} with redirect: ${RESET_PASSWORD_URL}`);
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo,
+        redirectTo: RESET_PASSWORD_URL,
       });
       if (error) throw error;
 

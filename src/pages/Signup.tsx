@@ -200,17 +200,26 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: name,
           },
+          emailRedirectTo: OAUTH_CALLBACK_URL,
         },
       });
 
       if (error) throw error;
+
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError("User already exists. Please sign in or reset password.");
+        return;
+      }
 
       // On success → go to verify view (which we'll use as a "Check Email" success screen)
       setView("verify");
@@ -223,13 +232,16 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
-      const redirectTo = window.location.origin;
-      console.log(`Attempting ${provider} signup with redirect: ${redirectTo}`);
+      // Use a stable app URL env, not implicit origin only.
+      const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+      const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+
+      console.log(`Attempting ${provider} signup with redirect: ${OAUTH_CALLBACK_URL}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo,
+          redirectTo: OAUTH_CALLBACK_URL,
         }
       });
       if (error) throw error;
@@ -423,10 +435,16 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
             <div style={s.switchRow}>
               Didn't receive it?{" "}
               <button style={s.switchBtn} onClick={async () => { 
-                // Resend confirmation email logic could go here
+                // Resend confirmation email logic
+                const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+                const OAUTH_CALLBACK_URL = `${APP_URL}/auth/callback`;
+                
                 await supabase.auth.resend({
                   type: 'signup',
                   email: email,
+                  options: {
+                    emailRedirectTo: OAUTH_CALLBACK_URL,
+                  }
                 });
               }}>
                 Resend email
