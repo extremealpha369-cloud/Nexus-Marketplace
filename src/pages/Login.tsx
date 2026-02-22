@@ -261,9 +261,11 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
 
       if (error) throw error;
 
+      console.log("Login successful, session should update");
       setLoginSuccess(true);
       // App.tsx handles navigation via onAuthStateChange
     } catch (err: any) {
+      console.error("Login Error:", err);
       setLoginError(err.message || "Failed to sign in.");
     } finally {
       setLoginLoading(false);
@@ -272,14 +274,18 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
 
   const handleSocialLogin = async (provider: 'google' | 'discord') => {
     try {
+      const redirectTo = window.location.origin;
+      console.log(`Attempting ${provider} login with redirect: ${redirectTo}`);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin,
+          redirectTo,
         }
       });
       if (error) throw error;
     } catch (err: any) {
+      console.error("Social Login Error:", err);
       setLoginError(err.message || `Failed to sign in with ${provider}`);
     }
   };
@@ -291,8 +297,11 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
     setResetLoading(true);
     
     try {
+      const redirectTo = window.location.origin + '/update-password';
+      console.log(`Sending reset email to ${resetEmail} with redirect: ${redirectTo}`);
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: window.location.origin + '/update-password',
+        redirectTo,
       });
       if (error) throw error;
 
