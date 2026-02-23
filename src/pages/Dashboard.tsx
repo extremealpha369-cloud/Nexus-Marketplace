@@ -1058,6 +1058,13 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
 // const USER_ID = "USR-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
 export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void, session: any }) {
+  const user = session?.user;
+
+  // Add a guard clause to wait for the user session
+  if (!user) {
+    return <div className="w-full h-screen flex items-center justify-center bg-nexus-bg text-nexus-text">Authenticating...</div>;
+  }
+
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
   const [search, setSearch] = useState("");
