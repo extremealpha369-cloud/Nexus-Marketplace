@@ -1082,7 +1082,6 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   const [copied, setCopied] = useState(false);
 
   // User Info from Session
-  const user = session?.user;
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const userId = user?.id?.slice(0, 8).toUpperCase() || "UNKNOWN";
