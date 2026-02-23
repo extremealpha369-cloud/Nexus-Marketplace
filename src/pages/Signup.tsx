@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent, KeyboardEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { supabase } from "../lib/supabase";
 
 const PURPLE = "linear-gradient(135deg, #7c3aed, #a855f7)";
@@ -413,6 +414,7 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
         {view === "verify" && (
           <div style={{ animation: "fadeUp 0.4s ease both" }}>
             <button style={s.backBtn} onClick={() => { setVerifyError(""); setCode(["","","","","",""]); setView("signup"); }}>
+            <button style={s.backBtn} onClick={() => { setView("signup"); }}>
               <IconArrow />
             </button>
 

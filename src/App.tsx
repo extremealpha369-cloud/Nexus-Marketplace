@@ -19,61 +19,71 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-      if (session) setView('dashboard');
-    });
+    // A single, reliable auth state listener.
+    // This handles initial load, sign-in, sign-out, and token refreshes.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth State Change:", event, session?.user?.email);
 
-    // Handle hash fragment for OAuth redirects
-    const handleHash = async () => {
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (session) {
+      // Always clear OAuth hash on auth state change to clean up URL
+      if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      if (session) {
+        // Critical: Verify the session with the server by fetching user details.
+        // This catches cases where a local session exists but the user was deleted/banned.
+        const { error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.warn("Session found but user invalid (deleted/banned). Forcing logout.", userError.message);
+          await supabase.auth.signOut(); // Force sign out to clear local storage
+          setSession(null);
+          setView('login'); // Redirect to login immediately
+        } else {
           setSession(session);
-          setView('dashboard');
-          // Clear hash to clean up URL
-          window.history.replaceState(null, '', window.location.pathname);
+          if (event === 'SIGNED_IN') {
+            setView('dashboard');
+          } else if (event === 'PASSWORD_RECOVERY') {
+            setView('update-password');
+          }
+        }
+      } else {
+        // No session or session is invalid/signed out
+        setSession(null);
+        if (event === 'SIGNED_OUT') {
+          setView('home'); // Or 'login' if you want to always force login page
+        } else if (event === 'INITIAL_SESSION') {
+          // On initial load, if no session, go to home
+          setView('home');
         }
       }
-    };
-    handleHash();
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth State Change:", event, session?.user?.email);
-      setSession(session);
-      setLoading(false);
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        setView('update-password');
-      } else if (event === 'SIGNED_IN') {
-        setView('dashboard');
-      } else if (event === 'SIGNED_OUT') {
-        setView('home');
-      }
+      setLoading(false); // Set loading to false after initial session check
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Route protection
+  // Route protection & view management
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // Wait until auth state is determined
 
     const protectedRoutes = ['dashboard', 'favourites', 'update-password'];
     const authRoutes = ['login', 'signup'];
 
-    if (!session && protectedRoutes.includes(view)) {
-      setView('login');
-    }
-
-    if (session && authRoutes.includes(view)) {
-      setView('dashboard');
+    if (session) {
+      // User is logged in.
+      // If they are on a page for logged-out users, redirect to dashboard.
+      if (authRoutes.includes(view) || view === 'home') {
+        setView('dashboard');
+      }
+    } else {
+      // User is not logged in.
+      // If they are on a protected page, redirect to login.
+      if (protectedRoutes.includes(view)) {
+        setView('login');
+      }
     }
   }, [view, session, loading]);
 
@@ -84,7 +94,7 @@ export default function App() {
       ) : view === 'signup' ? (
         <Signup onSwitch={() => setView('login')} onBack={() => setView('home')} />
       ) : view === 'dashboard' ? (
-        <Dashboard onNavigate={(page) => setView(page as any)} />
+        <Dashboard onNavigate={(page) => setView(page as any)} session={session} />
       ) : view === 'buy' ? (
         <BuyPage onNavigate={(page) => setView(page as any)} />
       ) : view === 'favourites' ? (
