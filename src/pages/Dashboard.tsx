@@ -1088,6 +1088,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   }, [user]);
 
   const fetchProducts = async () => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
         .from('products')
@@ -1149,6 +1150,10 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   }), [products]);
 
   const handleAdd = async (data: ProductFormData) => {
+    if (!user) {
+      showToast("You must be logged in to list a product.", "error");
+      return;
+    }
     try {
       const newProduct = {
         user_id: user.id,
@@ -1189,7 +1194,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   };
 
   const handleEdit = async (data: ProductFormData) => {
-    if (!editTarget) return;
+    if (!editTarget || !user) return;
     
     try {
       const updates = {
@@ -1229,7 +1234,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !user) return;
     
     try {
       const { error } = await supabase
@@ -1250,6 +1255,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   };
 
   const handleToggleVis = async (id: string) => {
+    if (!user) return;
     const product = products.find(p => p.id === id);
     if (!product) return;
     
