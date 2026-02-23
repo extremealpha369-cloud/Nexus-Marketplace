@@ -205,6 +205,9 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
       // Redirect to root to avoid 404s
       const OAUTH_CALLBACK_URL = `${APP_URL}`;
 
+      console.log("Attempting signup with email:", email);
+      console.log("Redirect URL:", OAUTH_CALLBACK_URL);
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -216,7 +219,10 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase SignUp Error:", error);
+        throw error;
+      }
 
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         setError("User already exists. Please sign in or reset password.");
