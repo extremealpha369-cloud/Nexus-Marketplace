@@ -232,7 +232,15 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
       // On success → go to verify view (which we'll use as a "Check Email" success screen)
       setView("verify");
     } catch (err: any) {
-      setError(err.message || "Failed to create account.");
+      console.error("Signup error details:", err);
+      let msg = err.message || "Failed to create account.";
+      
+      // Add helpful context for common SMTP errors
+      if (msg.includes("Error sending confirmation email")) {
+        msg = "Error sending email. Please check your Supabase SMTP settings (Host, Port, User, Password).";
+      }
+      
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -351,7 +359,15 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
             <h1 style={s.h1}>Create account</h1>
             <p style={s.sub}>Join Nexus — it's free forever</p>
 
-            {error && <div style={s.errorBox}>{error}</div>}
+            {error && (
+              <div style={s.errorBox}>
+                <p style={{ margin: 0, fontWeight: 600 }}>{error}</p>
+                <div style={{ marginTop: 8, fontSize: 10, opacity: 0.8, textAlign: "left", whiteSpace: "pre-wrap" }}>
+                  <p style={{ margin: "4px 0" }}>Debug Info:</p>
+                  <p style={{ margin: 0 }}>Redirect: {window.location.origin}</p>
+                </div>
+              </div>
+            )}
 
             <div style={{ marginBottom: 20 }}>
               <button style={s.socialBtn} onClick={() => handleSocialLogin('google')}><IconChrome /> Continue with Google</button>
