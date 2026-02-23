@@ -330,6 +330,12 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
     }
   };
 
+  const handleForgotPasswordClick = () => {
+    setResetEmail(email);
+    setResetError("");
+    setView("forgot-email");
+  };
+
   const goBackToLogin = () => {
     setResetError(""); setView("login");
   };
@@ -410,7 +416,7 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
             <button
               type="button"
               style={s.forgotLink}
-              onClick={() => { setResetEmail(email); setResetError(""); setView("forgot-email"); }}
+              onClick={handleForgotPasswordClick}
             >
               Forgot password?
             </button>
