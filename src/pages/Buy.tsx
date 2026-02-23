@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { supabase } from "../lib/supabase";
 
 // ── TYPES ──────────────────────────────────────────────────────────────────
 interface Seller {
@@ -25,7 +26,7 @@ const SELLERS: Seller[] = [
   { id: "s5", name: "Zoe Chen", avatar: "", initials: "ZC", verified: true, rating: 4.6, sales: 658, location: "Singapore", memberSince: "2022", bio: "Digital assets, software licenses, and tech accessories.", avatarGradient: "linear-gradient(135deg,#34d399,#059669)" },
 ];
 
-const PRODUCTS: Product[] = [
+const MOCK_PRODUCTS: Product[] = [
   { id: "p1", title: "Arc Flow Pro Mechanical Keyboard", description: "A precision-engineered 75% mechanical keyboard with POM plate, gasket mount, and lubed Gateron Oil King switches. Crafted for those who demand perfection in every keystroke.", price: 349, originalPrice: 420, currency: "USD", category: "Electronics", subcategory: "Keyboards", condition: "New", brand: "ArcStudio", tags: ["keyboard", "mechanical", "premium", "75%", "aluminum"], thumbnail: "", images: ["", "", "", ""], thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", seller: SELLERS[0], rating: 4.9, reviewCount: 128, stock: 7, shipping: "Express (2-3 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "2 days ago", views: 3420, saves: 241, featured: true, badge: "Best Seller" },
   { id: "p2", title: "Shiro Ceramic Pour-Over Set", description: "Handcrafted in Kyoto by master ceramicist Hiroshi Yamada. Each piece is unique with subtle celadon glazing and a matte exterior. The set includes the dripper, carafe, and two tasting cups.", price: 195, currency: "USD", category: "Home & Kitchen", subcategory: "Coffee", condition: "New", brand: "Yamada Ceramics", tags: ["coffee", "ceramic", "handcrafted", "kyoto", "pour-over"], thumbnail: "", images: ["", "", ""], thumbnailGradient: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#164e63 100%)", seller: SELLERS[1], rating: 5.0, reviewCount: 64, stock: 3, shipping: "Standard (5-7 days)", shippingPrice: 12, returns: "14-day returns", postedAt: "1 week ago", views: 1870, saves: 189, featured: true, badge: "Rare Find" },
   { id: "p3", title: "Obsidian Leather Folio Wallet", description: "Full-grain vegetable-tanned leather with a hand-stitched obsidian finish. Features 8 card slots, 2 hidden compartments, and a magnetic money clip. Made in Florence.", price: 128, currency: "USD", category: "Fashion", subcategory: "Accessories", condition: "New", brand: "Ferri Milano", tags: ["wallet", "leather", "italian", "handmade", "luxury"], thumbnail: "", images: ["", "", ""], thumbnailGradient: "linear-gradient(135deg,#1c1917 0%,#292524 50%,#44403c 100%)", seller: SELLERS[3], rating: 5.0, reviewCount: 312, stock: 14, shipping: "Express (1-2 days)", shippingPrice: 0, returns: "60-day returns", postedAt: "3 days ago", views: 5620, saves: 892, featured: false, badge: "Editor's Pick" },
@@ -535,6 +536,7 @@ function FilterPanel({ filters, setFilters, onClose }: { filters: any; setFilter
 
 // ── MAIN BUY PAGE ─────────────────────────────────────────────────────────────
 export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void }) {
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("Featured");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -550,6 +552,62 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     freeShipping: false, featured: false, inStock: false, verified: false,
     country: "", state: "", city: "",
   });
+
+  useEffect(() => {
+    fetchPublicProducts();
+  }, []);
+
+  const fetchPublicProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProducts: Product[] = (data || []).map((p: any) => {
+        // Mock seller data based on user_id
+        const sellerIndex = Math.abs(p.user_id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % SELLERS.length;
+        const seller = SELLERS[sellerIndex];
+
+        return {
+          id: p.id,
+          title: p.name,
+          description: p.description,
+          price: parseFloat(p.price),
+          currency: "USD",
+          category: p.category,
+          subcategory: p.tags && p.tags.length > 0 ? p.tags[0] : "General",
+          condition: p.condition,
+          brand: p.brand || "Unknown",
+          tags: p.tags || [],
+          thumbnail: p.thumbnail || "",
+          images: p.reference_images || [],
+          thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", // Default gradient
+          seller: {
+            ...seller,
+            location: p.city && p.country ? `${p.city}, ${p.country}` : seller.location
+          },
+          rating: 0, // Mock
+          reviewCount: 0, // Mock
+          stock: 1, // Mock
+          shipping: "Standard",
+          shippingPrice: 0,
+          returns: p.returns || "No returns",
+          postedAt: new Date(p.created_at).toLocaleDateString(),
+          views: 0,
+          saves: p.share_count || 0,
+          featured: false
+        };
+      });
+
+      setProducts([...formattedProducts, ...MOCK_PRODUCTS]);
+    } catch (error) {
+      console.error('Error fetching public products:', error);
+    }
+  };
 
   const toggleSave = (id: string) => setSavedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -573,7 +631,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     filters.country !== "", filters.state !== "", filters.city !== "",
   ].filter(Boolean).length;
 
-  const filtered = PRODUCTS.filter(p => {
+  const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some(t => t.includes(q)) || p.seller.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
     const cat = activeCategory === "All" || p.category === activeCategory;
@@ -818,7 +876,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
                   <span style={{ display: "inline-block", width: 16, height: 1, background: "#a855f7" }} />Featured
                 </div>
                 <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
-                  {PRODUCTS.filter(p => p.featured).slice(0, 3).map((product, i) => (
+                  {products.filter(p => p.featured).slice(0, 3).map((product, i) => (
                     <div key={product.id} style={{ animation: `slideIn 0.5s ease ${i * 0.08}s both` }}>
                       <ProductCard product={product} onClick={() => setSelectedProduct(product)} saved={savedIds.has(product.id)} onSave={toggleSave} userReview={userReviews.find(r => r.productId === product.id)} />
                     </div>

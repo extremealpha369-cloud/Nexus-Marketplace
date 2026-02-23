@@ -18,7 +18,7 @@ interface Review {
   comment: string;
   date: Date;
   replied: boolean;
-  replyText: string;x
+  replyText: string;
 }
 
 interface Product {
@@ -1058,7 +1058,7 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
 // const USER_ID = "USR-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
 export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void, session: any }) {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<Category | "All">("All");
@@ -1081,6 +1081,52 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   const userId = user?.id?.slice(0, 8).toUpperCase() || "UNKNOWN";
   const userRole = "Seller · Verified"; // Mock role for now
 
+  useEffect(() => {
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Map database fields to frontend Product interface
+      const formattedProducts: Product[] = (data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        thumbnail: p.thumbnail,
+        referenceImages: p.reference_images || [],
+        contactNumber: p.contact_number,
+        email: p.email,
+        price: p.price.toString(),
+        country: p.country,
+        state: p.state,
+        city: p.city,
+        tags: p.tags || [],
+        category: p.category as Category,
+        brand: p.brand,
+        condition: p.condition as Condition,
+        returns: p.returns,
+        visibility: p.visibility as Visibility,
+        createdAt: new Date(p.created_at),
+        shareCount: p.share_count || 0
+      }));
+      
+      setProducts(formattedProducts);
+    } catch (error: any) {
+      console.error('Error fetching products:', error);
+      showToast(error.message || "Failed to load products", "error");
+    }
+  };
+
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     clearTimeout(toastTimer.current);
     setToast({ msg, type });
@@ -1102,31 +1148,129 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     totalShares: products.reduce((a, p) => a + p.shareCount, 0),
   }), [products]);
 
-  const handleAdd = useCallback((data: ProductFormData) => {
-    const product: Product = { id: genId(), name: data.name, description: data.description, thumbnail: data.thumbnail, referenceImages: data.referenceImages, contactNumber: data.contactNumber, email: data.email, price: data.price, country: data.country, state: data.state, city: data.city, tags: data.tags, category: data.category as Category, brand: data.brand, condition: data.condition as Condition, returns: data.returns, visibility: data.visibility, createdAt: new Date(), shareCount: 0 };
-    setProducts((prev) => [product, ...prev]);
-    setShowAdd(false);
-    showToast("Product listed successfully!");
-  }, [showToast]);
+  const handleAdd = async (data: ProductFormData) => {
+    try {
+      const newProduct = {
+        user_id: user.id,
+        name: data.name,
+        description: data.description,
+        thumbnail: data.thumbnail,
+        reference_images: data.referenceImages,
+        contact_number: data.contactNumber,
+        email: data.email,
+        price: parseFloat(data.price),
+        country: data.country,
+        state: data.state,
+        city: data.city,
+        tags: data.tags,
+        category: data.category,
+        brand: data.brand,
+        condition: data.condition,
+        returns: data.returns,
+        visibility: data.visibility,
+        share_count: 0
+      };
 
-  const handleEdit = useCallback((data: ProductFormData) => {
+      const { data: insertedData, error } = await supabase
+        .from('products')
+        .insert([newProduct])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setShowAdd(false);
+      showToast("Product listed successfully!");
+      fetchProducts(); // Refresh list
+    } catch (error: any) {
+      console.error('Error adding product:', error);
+      showToast(error.message || "Failed to add product", "error");
+    }
+  };
+
+  const handleEdit = async (data: ProductFormData) => {
     if (!editTarget) return;
-    setProducts((prev) => prev.map((p) => p.id === editTarget.id ? { ...p, ...data, category: data.category as Category, condition: data.condition as Condition } : p));
-    setEditTarget(null);
-    showToast("Product updated!");
-  }, [editTarget, showToast]);
+    
+    try {
+      const updates = {
+        name: data.name,
+        description: data.description,
+        thumbnail: data.thumbnail,
+        reference_images: data.referenceImages,
+        contact_number: data.contactNumber,
+        email: data.email,
+        price: parseFloat(data.price),
+        country: data.country,
+        state: data.state,
+        city: data.city,
+        tags: data.tags,
+        category: data.category,
+        brand: data.brand,
+        condition: data.condition,
+        returns: data.returns,
+        visibility: data.visibility,
+      };
 
-  const handleDelete = useCallback(() => {
+      const { error } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', editTarget.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setEditTarget(null);
+      showToast("Product updated!");
+      fetchProducts(); // Refresh list
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      showToast(error.message || "Failed to update product", "error");
+    }
+  };
+
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-    setDeleteTarget(null);
-    showToast("Product deleted.");
-  }, [deleteTarget, showToast]);
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', deleteTarget.id)
+        .eq('user_id', user.id);
 
-  const handleToggleVis = useCallback((id: string) => {
-    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, visibility: p.visibility === "public" ? "private" : "public" } : p));
-    showToast("Visibility updated!");
-  }, [showToast]);
+      if (error) throw error;
+
+      setDeleteTarget(null);
+      showToast("Product deleted.");
+      fetchProducts(); // Refresh list
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      showToast(error.message || "Failed to delete product", "error");
+    }
+  };
+
+  const handleToggleVis = async (id: string) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+    
+    const newVisibility = product.visibility === "public" ? "private" : "public";
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ visibility: newVisibility })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      showToast("Visibility updated!");
+      fetchProducts(); // Refresh list
+    } catch (error: any) {
+      console.error('Error updating visibility:', error);
+      showToast(error.message || "Failed to update visibility", "error");
+    }
+  };
 
   const handleReply = useCallback((reviewId: string, text: string) => {
     setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, replied: true, replyText: text } : r));

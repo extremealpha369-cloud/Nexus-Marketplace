@@ -62,6 +62,7 @@ const s: any = {
     minHeight: "100vh", width: "100%", display: "flex",
     alignItems: "center", justifyContent: "center", padding: 16,
     background: "#0f0a1e", position: "relative", overflow: "hidden",
+    
     fontFamily: "'Segoe UI', sans-serif", color: "#e2e0f0",
   },
   orb1: {
