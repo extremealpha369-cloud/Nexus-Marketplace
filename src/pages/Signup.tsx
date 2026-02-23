@@ -102,6 +102,16 @@ const s = {
     color: "#f87171", fontSize: 12, padding: "10px 14px",
     borderRadius: 10, marginBottom: 16, textAlign: "center",
   },
+  successBox: {
+    background: "rgba(22, 163, 74, 0.1)", border: "1px solid rgba(22, 163, 74, 0.3)",
+    color: "#34d399", fontSize: 12, padding: "10px 14px",
+    borderRadius: 10, margin: "16px 0", textAlign: "center",
+  },
+  successBox: {
+    background: "rgba(22, 163, 74, 0.1)", border: "1px solid rgba(22, 163, 74, 0.3)",
+    color: "#34d399", fontSize: 12, padding: "10px 14px",
+    borderRadius: 10, marginBottom: 16, textAlign: "center",
+  },
   socialBtn: {
     width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
     gap: 10, padding: "12px 16px", borderRadius: 12,
@@ -180,6 +190,9 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
   const [verifySuccess, setVerifySuccess] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState("");
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   useEffect(() => {
     if (!password) { setStrength(0); return; }
@@ -286,6 +299,33 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
       setVerifyError(err.message || "Invalid code.");
     } finally {
       setVerifyLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    setResendError("");
+    setResendSuccess(false);
+    setResendLoading(true);
+    try {
+      const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
+      const OAUTH_CALLBACK_URL = `${APP_URL}`;
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: OAUTH_CALLBACK_URL,
+        }
+      });
+
+      if (error) throw error;
+
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 4000);
+    } catch (err: any) {
+      setResendError(err.message || "Failed to resend email. Please try again later.");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -425,6 +465,8 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
             <div style={s.emailHighlight}>{email}</div>
 
             {verifyError && <div style={s.errorBox}>{verifyError}</div>}
+            {resendError && <div style={s.errorBox}>{resendError}</div>}
+            {resendSuccess && <div style={s.successBox}>Verification email sent! Please check your inbox.</div>}
 
             <div style={{ textAlign: "center", marginBottom: 20, fontSize: 13, color: "rgba(180,160,220,0.7)" }}>
               Please click the link in your email to verify your account.
@@ -436,20 +478,8 @@ export default function Signup({ onSwitch, onBack }: SignupProps) {
 
             <div style={s.switchRow}>
               Didn't receive it?{" "}
-              <button style={s.switchBtn} onClick={async () => { 
-                // Resend confirmation email logic
-                const APP_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, "");
-                const OAUTH_CALLBACK_URL = `${APP_URL}`;
-                
-                await supabase.auth.resend({
-                  type: 'signup',
-                  email: email,
-                  options: {
-                    emailRedirectTo: OAUTH_CALLBACK_URL,
-                  }
-                });
-              }}>
-                Resend email
+              <button style={s.switchBtn} onClick={handleResendEmail} disabled={resendLoading}>
+                {resendLoading ? "Sending..." : "Resend email"}
               </button>
             </div>
           </div>
