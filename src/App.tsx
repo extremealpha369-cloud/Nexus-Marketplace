@@ -29,35 +29,40 @@ export default function App() {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
 
-      if (session) {
-        // Critical: Verify the session with the server by fetching user details.
-        // This catches cases where a local session exists but the user was deleted/banned.
-        const { error: userError } = await supabase.auth.getUser();
-        
-        if (userError) {
-          console.warn("Session found but user invalid (deleted/banned). Forcing logout.", userError.message);
-          await supabase.auth.signOut(); // Force sign out to clear local storage
-          setSession(null);
-          setView('login'); // Redirect to login immediately
+      try {
+        if (session) {
+          // Critical: Verify the session with the server by fetching user details.
+          // This catches cases where a local session exists but the user was deleted/banned.
+          const { error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            console.warn("Session found but user invalid (deleted/banned). Forcing logout.", userError.message);
+            await supabase.auth.signOut(); // Force sign out to clear local storage
+            setSession(null);
+            setView('login'); // Redirect to login immediately
+          } else {
+            setSession(session);
+            if (event === 'SIGNED_IN') {
+              setView('dashboard');
+            } else if (event === 'PASSWORD_RECOVERY') {
+              setView('update-password');
+            }
+          }
         } else {
-          setSession(session);
-          if (event === 'SIGNED_IN') {
-            setView('dashboard');
-          } else if (event === 'PASSWORD_RECOVERY') {
-            setView('update-password');
+          // No session or session is invalid/signed out
+          setSession(null);
+          if (event === 'SIGNED_OUT') {
+            setView('home'); // Or 'login' if you want to always force login page
+          } else if (event === 'INITIAL_SESSION') {
+            // On initial load, if no session, go to home
+            setView('home');
           }
         }
-      } else {
-        // No session or session is invalid/signed out
-        setSession(null);
-        if (event === 'SIGNED_OUT') {
-          setView('home'); // Or 'login' if you want to always force login page
-        } else if (event === 'INITIAL_SESSION') {
-          // On initial load, if no session, go to home
-          setView('home');
-        }
+      } catch (err) {
+        console.error("Error in onAuthStateChange:", err);
+      } finally {
+        setLoading(false); // Set loading to false after initial session check
       }
-      setLoading(false); // Set loading to false after initial session check
     });
 
     return () => {
