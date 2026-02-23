@@ -338,7 +338,7 @@ export default function FavouritesPage({ onNavigate }: { onNavigate: (page: 'log
   const [toast, setToast] = useState<{ msg: string; type?: "success" | "error" | "info" } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const showToast = useCallback((msg: string, type: "success" | "error" | "info" = "success") => {
     clearTimeout(toastTimer.current);

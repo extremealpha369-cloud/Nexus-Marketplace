@@ -98,7 +98,7 @@ function IconDiscord() {
   );
 }
 
-const s = {
+const s: any = {
   page: {
     minHeight: "100vh", width: "100%", display: "flex",
     alignItems: "center", justifyContent: "center", padding: 16,
