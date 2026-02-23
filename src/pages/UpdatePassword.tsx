@@ -1,26 +1,56 @@
 import { useState } from "react";
+import React from "react";
 import { supabase } from "../lib/supabase";
 
 const PURPLE = "linear-gradient(135deg, #7c3aed, #a855f7)";
 
 export default function UpdatePassword({ onNavigate }: { onNavigate: (page: any) => void }) {
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      console.log("Attempting to update password...");
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session found. Please request a new password reset link.");
+      }
+      
+      // Add a timeout to prevent infinite hanging
+      const updatePromise = supabase.auth.updateUser({ password });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Request timed out after 15 seconds. Please try again.")), 15000)
+      );
+      
+      const { data, error } = await Promise.race([updatePromise, timeoutPromise]) as any;
+      
+      console.log("Update response:", { data, error });
+      
       if (error) throw error;
+      
       setSuccess(true);
       setTimeout(() => onNavigate('dashboard'), 2000);
     } catch (err: any) {
-      setError(err.message);
+      console.error("Error updating password:", err);
+      setError(err.message || "An unexpected error occurred while updating the password.");
     } finally {
       setLoading(false);
     }
@@ -40,7 +70,17 @@ export default function UpdatePassword({ onNavigate }: { onNavigate: (page: any)
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={{ width: "100%", padding: "12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", outline: "none" }}
+              style={{ width: "100%", padding: "12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "block", marginBottom: 8, fontSize: 13, color: "rgba(180,160,220,0.8)" }}>Confirm Password</label>
+            <input 
+              type="password" 
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              style={{ width: "100%", padding: "12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", outline: "none", boxSizing: "border-box" }}
             />
           </div>
           <button 
