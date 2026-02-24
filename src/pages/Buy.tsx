@@ -294,10 +294,59 @@ function ProductCard({ product, onClick, saved, onSave, userReview }: { product:
   );
 }
 
+interface Order {
+  id: string;
+  product: Product;
+  date: Date;
+  status: "Processing" | "Shipped" | "Delivered";
+}
+
+// ── ORDERS MODAL ─────────────────────────────────────────────────────────────
+function OrdersModal({ orders, onClose }: { orders: Order[]; onClose: () => void }) {
+  useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(10px)" }} />
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 600, maxHeight: "80vh", background: "#0d0d18", border: "1px solid rgba(130,80,255,0.25)", borderRadius: 22, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.7)", animation: "menuIn 0.25s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(130,80,255,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "#f0eeff" }}>Your Orders</div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#f0eeff" }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><line x1={18} y1={6} x2={6} y2={18}/><line x1={6} y1={6} x2={18} y2={18}/></svg>
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          {orders.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#7b7a9a" }}>No orders yet.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {orders.map(order => (
+                <div key={order.id} style={{ display: "flex", gap: 16, padding: 16, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(130,80,255,0.1)" }}>
+                  <div style={{ width: 60, height: 60, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                    <ThumbnailSVG gradient={order.product.thumbnailGradient} title="" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: "#f0eeff" }}>{order.product.title}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#c084fc" }}>${order.product.price}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#7b7a9a", marginBottom: 8 }}>Order ID: #{order.id} · {order.date.toLocaleDateString()}</div>
+                    <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", fontSize: 11, fontWeight: 600, fontFamily: "'Fira Code', monospace" }}>{order.status}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PRODUCT MODAL ─────────────────────────────────────────────────────────────
-function ProductModal({ product, onClose, saved, onSave, userReviews, onOpenReview, onOpenAllReviews }: {
+function ProductModal({ product, onClose, saved, onSave, userReviews, onOpenReview, onOpenAllReviews, onBuy }: {
   product: Product; onClose: () => void; saved: boolean; onSave: (id: string) => void;
-  userReviews: UserReview[]; onOpenReview: () => void; onOpenAllReviews: () => void;
+  userReviews: UserReview[]; onOpenReview: () => void; onOpenAllReviews: () => void; onBuy: (product: Product) => void;
 }) {
   const [activeImg, setActiveImg] = useState(0);
   const allImgs = [0, ...product.images.map((_, i) => i + 1)];
@@ -365,6 +414,10 @@ function ProductModal({ product, onClose, saved, onSave, userReviews, onOpenRevi
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+              <button onClick={() => onBuy(product)} style={{ flex: 2, padding: "12px 16px", borderRadius: 12, background: "linear-gradient(135deg,#10b981,#34d399)", border: "none", color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Playfair Display', serif", boxShadow: "0 4px 20px rgba(16,185,129,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                Buy Now
+              </button>
               <button onClick={() => onSave(product.id)} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 12, background: saved ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.04)", border: `1px solid ${saved ? "rgba(168,85,247,0.5)" : "rgba(130,80,255,0.2)"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: saved ? "#c084fc" : "#7b7a9a", fontSize: 13, fontWeight: 500, fontFamily: "'Outfit', sans-serif" }}>
                 <svg width={16} height={16} viewBox="0 0 24 24" fill={saved ? "#c084fc" : "none"} stroke={saved ? "#c084fc" : "#7b7a9a"} strokeWidth={2}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                 {saved ? "Saved" : "Save"}
@@ -544,6 +597,8 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState("All");
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [showOrders, setShowOrders] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<Product | null>(null);
   const [allReviewsProduct, setAllReviewsProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState({
@@ -556,6 +611,18 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
   useEffect(() => {
     fetchPublicProducts();
   }, []);
+
+  const handleBuy = (product: Product) => {
+    const newOrder: Order = {
+      id: Math.random().toString(36).slice(2, 8).toUpperCase(),
+      product,
+      date: new Date(),
+      status: "Processing"
+    };
+    setOrders(prev => [newOrder, ...prev]);
+    alert(`Order #${newOrder.id} placed successfully!`);
+    setSelectedProduct(null); // Close product modal
+  };
 
   const fetchPublicProducts = async () => {
     try {
@@ -785,6 +852,10 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             <span>Buy</span>
           </div>
+          <a href="#" className="sb-nav-item" onClick={(e) => { e.preventDefault(); setShowOrders(true); }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>Orders {orders.length > 0 ? `(${orders.length})` : ""}</span>
+          </a>
           <a href="#" className="sb-nav-item" onClick={(e) => { e.preventDefault(); onNavigate('favourites'); }}>
             <svg width={16} height={16} viewBox="0 0 24 24" fill={savedIds.size > 0 ? "#c084fc" : "none"} stroke="currentColor" strokeWidth={2}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             <span>Favourites {savedIds.size > 0 ? `(${savedIds.size})` : ""}</span>
@@ -926,6 +997,8 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
       </div>
 
       {/* ── MODALS ── */}
+      {showOrders && <OrdersModal orders={orders} onClose={() => setShowOrders(false)} />}
+
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
@@ -935,6 +1008,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           userReviews={userReviews}
           onOpenReview={() => { setReviewProduct(selectedProduct); }}
           onOpenAllReviews={() => { setAllReviewsProduct(selectedProduct); }}
+          onBuy={handleBuy}
         />
       )}
 
