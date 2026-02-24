@@ -1,5 +1,4 @@
-import { useState } from "react";
-import React from "react";
+import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const PURPLE = "linear-gradient(135deg, #7c3aed, #a855f7)";

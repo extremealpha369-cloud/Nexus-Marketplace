@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import BuyPage from './pages/Buy';
-import FavouritesPage from './pages/FavouritesPage';
+import FavouritesPage from './pages/favourites';
 import PrivacyPolicy from './pages/Privacypolicy';
 import TermsOfService from './pages/Termsofservice';
 import CookiesPolicy from './pages/Cookiespolicy';
@@ -101,7 +101,7 @@ export default function App() {
       ) : view === 'update-password' ? (
         <UpdatePassword onNavigate={(page) => setView(page as any)} />
       ) : (
-        <Home onNavigate={(page) => setView(page as any)} />
+        <Home onNavigate={(page) => setView(page as any)} session={session} />
       )}
     </div>
   );
