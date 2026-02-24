@@ -19,43 +19,57 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Safety timeout to prevent permanent loading screen
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
       setLoading(false);
+      clearTimeout(timeoutId);
       return;
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth State Change:", event, session?.user?.email);
+    let subscription: any;
+    try {
+      const result = supabase.auth.onAuthStateChange((event, session) => {
+        console.log("Auth State Change:", event, session?.user?.email);
+        clearTimeout(timeoutId);
 
-      if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      try {
-        if (session) {
-          setSession(session);
-          if (event === 'SIGNED_IN') {
-            setView('dashboard');
-          } else if (event === 'PASSWORD_RECOVERY') {
-            setView('update-password');
-          }
-        } else {
-          setSession(null);
-          if (event === 'SIGNED_OUT') {
-            setView('home');
-          } else if (event === 'INITIAL_SESSION') {
-            setView('home');
-          }
+        if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
-      } catch (err) {
-        console.error("Error in onAuthStateChange:", err);
-      } finally {
-        setLoading(false);
-      }
-    });
+
+        try {
+          if (session) {
+            setSession(session);
+            if (event === 'SIGNED_IN') {
+              setView('dashboard');
+            } else if (event === 'PASSWORD_RECOVERY') {
+              setView('update-password');
+            }
+          } else {
+            setSession(null);
+            if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+              setView('home');
+            }
+          }
+        } catch (err) {
+          console.error("Error in onAuthStateChange callback:", err);
+        } finally {
+          setLoading(false);
+        }
+      });
+      subscription = result.data.subscription;
+    } catch (err) {
+      console.error("Failed to initialize Supabase auth:", err);
+      setLoading(false);
+      clearTimeout(timeoutId);
+    }
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, []);
 
