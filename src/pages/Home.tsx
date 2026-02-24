@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { supabase } from "../lib/supabase";
 
 interface HomeProps {
   onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void;
@@ -103,38 +104,6 @@ export default function Home({ onNavigate, session }: HomeProps) {
       document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 20);
     };
     window.addEventListener("scroll", handleScroll);
-
-    // Auth state
-    function getUser() {
-      try { return JSON.parse(localStorage.getItem("nexus_user") || "null"); } catch { return null; }
-    }
-    function logout() {
-      localStorage.removeItem("nexus_user");
-      window.location.reload();
-    }
-    (window as any).logout = logout;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("loggedin") === "true") {
-      localStorage.setItem("nexus_user", JSON.stringify({ name: "Demo User", email: "demo@nexus.io" }));
-    }
-
-    const user = getUser();
-    if (user) {
-      const guestLinks = document.getElementById("guest-links");
-      const userLinks = document.getElementById("user-links");
-      const guestAuth = document.getElementById("guest-auth");
-      const userAuth = document.getElementById("user-auth");
-      if (guestLinks) guestLinks.style.display = "none";
-      if (userLinks) userLinks.style.display = "flex";
-      if (guestAuth) guestAuth.style.display = "none";
-      if (userAuth) userAuth.style.display = "flex";
-      const initials = user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase();
-      const avatar = document.getElementById("nav-avatar");
-      const username = document.getElementById("nav-username-display");
-      if (avatar) avatar.textContent = initials;
-      if (username) username.textContent = "@" + user.name.split(" ")[0].toLowerCase();
-    }
 
     // Smooth anchor scroll
     document.querySelectorAll('a[href^="#"]').forEach((a) => {
@@ -734,7 +703,7 @@ export default function Home({ onNavigate, session }: HomeProps) {
 
         {/* ══ NAVBAR ══ */}
         <nav id="navbar">
-          <a href="home.html" className="nav-logo">
+          <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="nav-logo">
             <div className="nav-logo-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -744,61 +713,60 @@ export default function Home({ onNavigate, session }: HomeProps) {
           </a>
 
           {/* Guest nav */}
-          <div className="nav-links" id="guest-links">
-            <a href="home.html" className="nav-link" data-page="home">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-              Home
-            </a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('dashboard'); }} data-page="dashboard">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-              Dashboard
-            </a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }} data-page="buy">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-              Buy
-            </a>
-            <a href="#contact" className="nav-link" data-page="contact">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-              Contact
-            </a>
-          </div>
+          {!session ? (
+            <>
+              <div className="nav-links">
+                <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="nav-link" data-page="home">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                  Home
+                </a>
+                <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('dashboard'); }} data-page="dashboard">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
+                  Dashboard
+                </a>
+                <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }} data-page="buy">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+                  Buy
+                </a>
+                <a href="#contact" className="nav-link" data-page="contact">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                  Contact
+                </a>
+              </div>
 
-          {/* Logged-in nav */}
-          <div className="nav-links" id="user-links" style={{ display: "none" }}>
-            <a href="home.html" className="nav-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-              Home
-            </a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('dashboard'); }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-              Dashboard
-            </a>
-            <a href="#" className="nav-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-              Profile
-            </a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
-              Buy
-            </a>
-            <a href="#contact" className="nav-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-              Contact
-            </a>
-          </div>
+              <div className="nav-right">
+                <button onClick={() => onNavigate('login')} className="btn-ghost">Log In</button>
+                <button onClick={() => onNavigate('signup')} className="btn-purple">Sign Up</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="nav-links">
+                <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="nav-link">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+                  Home
+                </a>
+                <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('dashboard'); }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
+                  Dashboard
+                </a>
+                <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+                  Buy
+                </a>
+                <a href="#contact" className="nav-link">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                  Contact
+                </a>
+              </div>
 
-          {/* Auth buttons (guest) */}
-          <div className="nav-right" id="guest-auth">
-            <button onClick={() => onNavigate('login')} className="btn-ghost">Log In</button>
-            <button onClick={() => onNavigate('signup')} className="btn-purple">Sign Up</button>
-          </div>
-
-          {/* User info (logged in) */}
-          <div className="nav-right nav-user" id="user-auth" style={{ display: "none" }}>
-            <span className="nav-username" id="nav-username-display">@user</span>
-            <div className="nav-avatar" id="nav-avatar">U</div>
-            <button className="btn-logout" onClick={() => (window as any).logout()}>Log out</button>
-          </div>
+              <div className="nav-right nav-user">
+                <span className="nav-username">@{session.user?.email?.split('@')[0] || 'user'}</span>
+                <div className="nav-avatar">{session.user?.email?.[0].toUpperCase() || 'U'}</div>
+                <button className="btn-logout" onClick={() => supabase.auth.signOut()}>Log out</button>
+              </div>
+            </>
+          )}
         </nav>
 
 

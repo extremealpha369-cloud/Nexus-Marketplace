@@ -19,6 +19,11 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      setLoading(false);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
 
@@ -76,8 +81,26 @@ export default function App() {
     }
   }, [view, session, loading]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-nexus-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-nexus-purple border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-nexus-text-muted font-dm animate-pulse">Initializing Nexus...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+
   return (
     <div className="min-h-screen bg-nexus-bg text-nexus-text selection:bg-nexus-purple/30">
+      {!isSupabaseConfigured && (
+        <div className="bg-red-500/10 border-b border-red-500/20 p-2 text-center text-xs text-red-400">
+          Supabase is not configured. Some features may not work. Please check your environment variables.
+        </div>
+      )}
       {view === 'login' ? (
         <Login onSwitch={() => setView('signup')} onBack={() => setView('home')} />
       ) : view === 'signup' ? (
