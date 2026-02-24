@@ -21,7 +21,7 @@ export default function App() {
   useEffect(() => {
     // A single, reliable auth state listener.
     // This handles initial load, sign-in, sign-out, and token refreshes.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
 
       // Always clear OAuth hash on auth state change to clean up URL
@@ -31,22 +31,11 @@ export default function App() {
 
       try {
         if (session) {
-          // Critical: Verify the session with the server by fetching user details.
-          // This catches cases where a local session exists but the user was deleted/banned.
-          const { error: userError } = await supabase.auth.getUser();
-          
-          if (userError) {
-            console.warn("Session found but user invalid (deleted/banned). Forcing logout.", userError.message);
-            await supabase.auth.signOut(); // Force sign out to clear local storage
-            setSession(null);
-            setView('login'); // Redirect to login immediately
-          } else {
-            setSession(session);
-            if (event === 'SIGNED_IN') {
-              setView('dashboard');
-            } else if (event === 'PASSWORD_RECOVERY') {
-              setView('update-password');
-            }
+          setSession(session);
+          if (event === 'SIGNED_IN') {
+            setView('dashboard');
+          } else if (event === 'PASSWORD_RECOVERY') {
+            setView('update-password');
           }
         } else {
           // No session or session is invalid/signed out
@@ -80,7 +69,7 @@ export default function App() {
     if (session) {
       // User is logged in.
       // If they are on a page for logged-out users, redirect to dashboard.
-      if (authRoutes.includes(view) || view === 'home') {
+      if (authRoutes.includes(view)) {
         setView('dashboard');
       }
     } else {

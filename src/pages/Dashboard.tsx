@@ -1062,8 +1062,6 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
 
   // Add a guard clause to wait for the user session
   if (!user) {
-    // If there is no user, redirect to login to prevent getting stuck
-    setTimeout(() => onNavigate('login'), 0);
     return <div className="w-full h-screen flex items-center justify-center bg-nexus-bg text-nexus-text">Redirecting...</div>;
   }
 
