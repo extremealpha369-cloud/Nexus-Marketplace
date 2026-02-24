@@ -24,6 +24,17 @@ export const reviewService = {
     return data || [];
   },
 
+  async getSellerReviews(sellerId: string): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*, user:profiles(name, avatar_url), product:products!inner(name, user_id)')
+      .eq('product.user_id', sellerId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async createReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review> {
     const { data, error } = await supabase
       .from('reviews')

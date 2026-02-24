@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { supabase } from "../lib/supabase";
+import { productService } from "../services/productService";
+import { reviewService } from "../services/reviewService";
+import { Product as ProductType, Review } from "../types";
 
 // ── TYPES ──────────────────────────────────────────────────────────────────
 interface Seller {
@@ -7,7 +10,7 @@ interface Seller {
   rating: number; sales: number; location: string; memberSince: string; bio: string; avatarGradient: string;
 }
 interface UserReview {
-  id: string; productId: string; rating: number; comment: string; date: Date;
+  id: string; productId: string; rating: number; text: string; date: Date;
 }
 interface Product {
   id: string; title: string; description: string; price: number; originalPrice?: number;
@@ -17,25 +20,7 @@ interface Product {
   shippingPrice: number; returns: string; postedAt: string; views: number; saves: number; featured: boolean; badge?: string;
 }
 
-// ── MOCK DATA ───────────────────────────────────────────────────────────────
-const SELLERS: Seller[] = [
-  { id: "s1", name: "Aria Voss", avatar: "", initials: "AV", verified: true, rating: 4.9, sales: 1240, location: "New York, US", memberSince: "2021", bio: "Curating premium tech & lifestyle products for discerning buyers.", avatarGradient: "linear-gradient(135deg,#7c3aed,#a855f7)" },
-  { id: "s2", name: "Kai Tanaka", avatar: "", initials: "KT", verified: true, rating: 4.8, sales: 876, location: "Tokyo, JP", memberSince: "2022", bio: "Exclusive Japanese imports and limited edition collectibles.", avatarGradient: "linear-gradient(135deg,#0ea5e9,#6366f1)" },
-  { id: "s3", name: "Mira Osei", avatar: "", initials: "MO", verified: false, rating: 4.7, sales: 432, location: "London, UK", memberSince: "2023", bio: "Artisan crafts and bespoke design pieces.", avatarGradient: "linear-gradient(135deg,#ec4899,#8b5cf6)" },
-  { id: "s4", name: "Luca Ferri", avatar: "", initials: "LF", verified: true, rating: 5.0, sales: 2100, location: "Milan, IT", memberSince: "2020", bio: "Italian luxury goods and vintage fashion specialist.", avatarGradient: "linear-gradient(135deg,#f59e0b,#ef4444)" },
-  { id: "s5", name: "Zoe Chen", avatar: "", initials: "ZC", verified: true, rating: 4.6, sales: 658, location: "Singapore", memberSince: "2022", bio: "Digital assets, software licenses, and tech accessories.", avatarGradient: "linear-gradient(135deg,#34d399,#059669)" },
-];
-
-const MOCK_PRODUCTS: Product[] = [
-  { id: "p1", title: "Arc Flow Pro Mechanical Keyboard", description: "A precision-engineered 75% mechanical keyboard with POM plate, gasket mount, and lubed Gateron Oil King switches. Crafted for those who demand perfection in every keystroke.", price: 349, originalPrice: 420, currency: "USD", category: "Electronics", subcategory: "Keyboards", condition: "New", brand: "ArcStudio", tags: ["keyboard", "mechanical", "premium", "75%", "aluminum"], thumbnail: "", images: ["", "", "", ""], thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", seller: SELLERS[0], rating: 4.9, reviewCount: 128, stock: 7, shipping: "Express (2-3 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "2 days ago", views: 3420, saves: 241, featured: true, badge: "Best Seller" },
-  { id: "p2", title: "Shiro Ceramic Pour-Over Set", description: "Handcrafted in Kyoto by master ceramicist Hiroshi Yamada. Each piece is unique with subtle celadon glazing and a matte exterior. The set includes the dripper, carafe, and two tasting cups.", price: 195, currency: "USD", category: "Home & Kitchen", subcategory: "Coffee", condition: "New", brand: "Yamada Ceramics", tags: ["coffee", "ceramic", "handcrafted", "kyoto", "pour-over"], thumbnail: "", images: ["", "", ""], thumbnailGradient: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#164e63 100%)", seller: SELLERS[1], rating: 5.0, reviewCount: 64, stock: 3, shipping: "Standard (5-7 days)", shippingPrice: 12, returns: "14-day returns", postedAt: "1 week ago", views: 1870, saves: 189, featured: true, badge: "Rare Find" },
-  { id: "p3", title: "Obsidian Leather Folio Wallet", description: "Full-grain vegetable-tanned leather with a hand-stitched obsidian finish. Features 8 card slots, 2 hidden compartments, and a magnetic money clip. Made in Florence.", price: 128, currency: "USD", category: "Fashion", subcategory: "Accessories", condition: "New", brand: "Ferri Milano", tags: ["wallet", "leather", "italian", "handmade", "luxury"], thumbnail: "", images: ["", "", ""], thumbnailGradient: "linear-gradient(135deg,#1c1917 0%,#292524 50%,#44403c 100%)", seller: SELLERS[3], rating: 5.0, reviewCount: 312, stock: 14, shipping: "Express (1-2 days)", shippingPrice: 0, returns: "60-day returns", postedAt: "3 days ago", views: 5620, saves: 892, featured: false, badge: "Editor's Pick" },
-  { id: "p4", title: "Lumina Desk Light — Matte Black", description: "Architectural task lighting inspired by Bauhaus principles. 4000K CRI-95 LED with stepless dimming and a 360° articulating arm. Zero flicker technology.", price: 285, originalPrice: 310, currency: "USD", category: "Home & Kitchen", subcategory: "Lighting", condition: "New", brand: "Lumina Studio", tags: ["desk lamp", "bauhaus", "LED", "dimming", "minimal"], thumbnail: "", images: ["", "", ""], thumbnailGradient: "linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 50%,#16213e 100%)", seller: SELLERS[4], rating: 4.8, reviewCount: 97, stock: 22, shipping: "Standard (3-5 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "5 days ago", views: 2130, saves: 304, featured: false },
-  { id: "p5", title: "Voss Silk Scarf — Midnight Garden", description: "100% mulberry silk twill, hand-rolled edges, 140×140cm. Printed with original botanical illustration, individually numbered, comes with silk-lined gift box.", price: 220, currency: "USD", category: "Fashion", subcategory: "Scarves", condition: "New", brand: "Aria Atelier", tags: ["silk", "scarf", "art", "limited", "botanical"], thumbnail: "", images: ["", ""], thumbnailGradient: "linear-gradient(135deg,#1a0533 0%,#3b0764 50%,#581c87 100%)", seller: SELLERS[0], rating: 4.9, reviewCount: 45, stock: 5, shipping: "Express (2-3 days)", shippingPrice: 8, returns: "14-day returns", postedAt: "1 day ago", views: 1240, saves: 167, featured: true, badge: "Limited" },
-  { id: "p6", title: "Mono Wireless Earbuds — Titanium", description: "Machined from aerospace-grade titanium. Hybrid ANC with 42dB attenuation, 32-hour playtime, custom-tuned 10mm beryllium-coated driver.", price: 599, originalPrice: 699, currency: "USD", category: "Electronics", subcategory: "Audio", condition: "New", brand: "Mono Labs", tags: ["earbuds", "titanium", "ANC", "wireless", "premium"], thumbnail: "", images: ["", "", "", ""], thumbnailGradient: "linear-gradient(135deg,#0c0a1e 0%,#1e1b4b 50%,#312e81 100%)", seller: SELLERS[4], rating: 4.7, reviewCount: 203, stock: 11, shipping: "Express (1-2 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "4 days ago", views: 7840, saves: 1023, featured: true, badge: "Top Rated" },
-  { id: "p7", title: "Wabi-Sabi Bud Vase Collection", description: "A trio of hand-thrown stoneware vases celebrating imperfection. Glazed with wood-ash and iron oxide at 1300°C in an anagama kiln.", price: 145, currency: "USD", category: "Home & Kitchen", subcategory: "Decor", condition: "New", brand: "Osei Studio", tags: ["vase", "ceramic", "wabi-sabi", "handmade", "stoneware"], thumbnail: "", images: ["", ""], thumbnailGradient: "linear-gradient(135deg,#1c1410 0%,#3d2b1f 50%,#5c4033 100%)", seller: SELLERS[2], rating: 4.7, reviewCount: 38, stock: 6, shipping: "Standard (5-7 days)", shippingPrice: 15, returns: "No returns (handmade)", postedAt: "2 weeks ago", views: 920, saves: 112, featured: false },
-  { id: "p8", title: "Nexus Dev Stack License — Pro", description: "Lifetime license for the complete Nexus developer toolkit. Includes CLI, API access (5M requests/mo), priority support, and all future updates.", price: 399, currency: "USD", category: "Software", subcategory: "Developer Tools", condition: "Digital", brand: "Nexus", tags: ["software", "license", "developer", "API", "lifetime"], thumbnail: "", images: [""], thumbnailGradient: "linear-gradient(135deg,#0d0520 0%,#1a0938 50%,#3b0764 100%)", seller: SELLERS[4], rating: 4.9, reviewCount: 567, stock: 999, shipping: "Instant Download", shippingPrice: 0, returns: "7-day refund", postedAt: "6 months ago", views: 24300, saves: 3410, featured: true, badge: "Digital" },
-];
+// ── MOCK DATA (Removed) ───────────────────────────────────────────────────────────────
 
 const CATEGORIES = ["All", "Electronics", "Fashion", "Home & Kitchen", "Software", "Art & Collectibles", "Sports", "Books"];
 const CONDITIONS = ["Any", "New", "Like New", "Good", "Digital"];
@@ -81,24 +66,24 @@ function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
 // ── REVIEW MODAL ─────────────────────────────────────────────────────────────
 function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose }: {
   product: Product; userReviews: UserReview[];
-  onSubmit: (productId: string, rating: number, comment: string) => void;
-  onEdit: (id: string, rating: number, comment: string) => void;
+  onSubmit: (productId: string, rating: number, text: string) => void;
+  onEdit: (id: string, rating: number, text: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
   const existing = userReviews.find(r => r.productId === product.id);
   const [rating, setRating] = useState(existing?.rating || 5);
-  const [comment, setComment] = useState(existing?.comment || "");
+  const [text, setText] = useState(existing?.text || "");
   const [hoverStar, setHoverStar] = useState(0);
   const [editMode, setEditMode] = useState(false);
 
   useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
 
   const handleSubmit = () => {
-    if (!comment.trim()) return;
+    if (!text.trim()) return;
     if (existing && !editMode) return;
-    if (existing && editMode) { onEdit(existing.id, rating, comment.trim()); }
-    else { onSubmit(product.id, rating, comment.trim()); }
+    if (existing && editMode) { onEdit(existing.id, rating, text.trim()); }
+    else { onSubmit(product.id, rating, text.trim()); }
     onClose();
   };
 
@@ -125,11 +110,11 @@ function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose
                 <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                   {[1,2,3,4,5].map(s => <svg key={s} width={20} height={20} viewBox="0 0 24 24" fill={s <= existing.rating ? "#f59e0b" : "rgba(245,158,11,0.2)"}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>)}
                 </div>
-                <div style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.7, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(130,80,255,0.1)", borderRadius: 10, padding: "12px 14px" }}>"{existing.comment}"</div>
+                <div style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.7, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(130,80,255,0.1)", borderRadius: 10, padding: "12px 14px" }}>"{existing.text}"</div>
                 <div style={{ fontSize: 11, color: "#4a4a6a", marginTop: 8, fontFamily: "'Fira Code', monospace" }}>Posted on {existing.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setRating(existing.rating); setComment(existing.comment); setEditMode(true); }} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "rgba(124,58,237,0.1)", border: "1px solid rgba(168,85,247,0.3)", color: "#c084fc", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>✏ Edit Review</button>
+                <button onClick={() => { setRating(existing.rating); setText(existing.text); setEditMode(true); }} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "rgba(124,58,237,0.1)", border: "1px solid rgba(168,85,247,0.3)", color: "#c084fc", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>✏ Edit Review</button>
                 <button onClick={() => { onDelete(existing.id); onClose(); }} style={{ padding: "10px 16px", borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>🗑 Remove</button>
               </div>
             </>
@@ -149,14 +134,14 @@ function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose
               </div>
 
               <div style={{ fontSize: 11, color: "#4a4a6a", fontFamily: "'Fira Code', monospace", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Your review</div>
-              <textarea value={comment} onChange={e => setComment(e.target.value.slice(0, 500))} placeholder="Share your experience with this product..." rows={4}
+              <textarea value={text} onChange={e => setText(e.target.value.slice(0, 500))} placeholder="Share your experience with this product..." rows={4}
                 style={{ width: "100%", padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(130,80,255,0.2)", color: "#f0eeff", fontSize: 13, fontFamily: "'Outfit', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }} />
-              <div style={{ fontSize: 11, color: "#4a4a6a", textAlign: "right", marginTop: 4, fontFamily: "'Fira Code', monospace" }}>{comment.length}/500</div>
+              <div style={{ fontSize: 11, color: "#4a4a6a", textAlign: "right", marginTop: 4, fontFamily: "'Fira Code', monospace" }}>{text.length}/500</div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                 {editMode && <button onClick={() => setEditMode(false)} style={{ padding: "11px 16px", borderRadius: 10, background: "transparent", border: "1px solid rgba(130,80,255,0.2)", color: "#7b7a9a", fontSize: 13, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>Cancel</button>}
-                <button onClick={handleSubmit} disabled={!comment.trim()}
-                  style={{ flex: 1, padding: "12px", borderRadius: 10, background: comment.trim() ? "linear-gradient(135deg,#7c3aed,#a855f7)" : "rgba(124,58,237,0.2)", border: "none", color: comment.trim() ? "white" : "#7b7a9a", fontSize: 14, fontWeight: 700, cursor: comment.trim() ? "pointer" : "default", fontFamily: "'Playfair Display', serif", boxShadow: comment.trim() ? "0 4px 20px rgba(124,58,237,0.4)" : "none", transition: "all 0.2s" }}>
+                <button onClick={handleSubmit} disabled={!text.trim()}
+                  style={{ flex: 1, padding: "12px", borderRadius: 10, background: text.trim() ? "linear-gradient(135deg,#7c3aed,#a855f7)" : "rgba(124,58,237,0.2)", border: "none", color: text.trim() ? "white" : "#7b7a9a", fontSize: 14, fontWeight: 700, cursor: text.trim() ? "pointer" : "default", fontFamily: "'Playfair Display', serif", boxShadow: text.trim() ? "0 4px 20px rgba(124,58,237,0.4)" : "none", transition: "all 0.2s" }}>
                   {editMode ? "Save Changes" : "Submit Review"}
                 </button>
               </div>
@@ -169,14 +154,9 @@ function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose
 }
 
 // ── ALL REVIEWS MODAL ─────────────────────────────────────────────────────────
-function AllReviewsModal({ product, userReviews, onClose, onOpenReview }: {
-  product: Product; userReviews: UserReview[]; onClose: () => void; onOpenReview: () => void;
+function AllReviewsModal({ product, userReviews, productReviews, onClose, onOpenReview }: {
+  product: Product; userReviews: UserReview[]; productReviews: any[]; onClose: () => void; onOpenReview: () => void;
 }) {
-  const mockReviews = [
-    { id: "mr1", reviewer: "Alex Morgan", initials: "AM", color: "linear-gradient(135deg,#0ea5e9,#6366f1)", rating: 5, comment: "Absolutely perfect condition, exactly as described. Fast response and smooth transaction.", date: new Date("2025-01-18") },
-    { id: "mr2", reviewer: "Sofia Patel", initials: "SP", color: "linear-gradient(135deg,#ec4899,#8b5cf6)", rating: 4, comment: "Great product, works perfectly. Minor cosmetic issue I wasn't told about but overall excellent.", date: new Date("2025-01-12") },
-    { id: "mr3", reviewer: "James Wu", initials: "JW", color: "linear-gradient(135deg,#f59e0b,#ef4444)", rating: 5, comment: "Outstanding quality and incredibly fast shipping. Would highly recommend this seller.", date: new Date("2025-01-08") },
-  ];
   const myReview = userReviews.find(r => r.productId === product.id);
   useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
 
@@ -204,28 +184,32 @@ function AllReviewsModal({ product, userReviews, onClose, onOpenReview }: {
                   <Stars rating={myReview.rating} size={13} />
                   <button onClick={() => { onClose(); setTimeout(onOpenReview, 100); }} style={{ background: "none", border: "none", color: "#c084fc", fontSize: 12, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>Edit</button>
                 </div>
-                <p style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.6 }}>"{myReview.comment}"</p>
+                <p style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.6 }}>"{myReview.text}"</p>
                 <div style={{ fontSize: 10, color: "#4a4a6a", marginTop: 6, fontFamily: "'Fira Code', monospace" }}>{myReview.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
               </div>
             </div>
           )}
 
           <div style={{ fontSize: 10, color: "#4a4a6a", fontFamily: "'Fira Code', monospace", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>Buyer Reviews</div>
-          {mockReviews.map(r => (
-            <div key={r.id} style={{ padding: "16px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(130,80,255,0.1)", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: r.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "white", fontFamily: "'Playfair Display', serif" }}>{r.initials}</div>
-                  <div>
-                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700, color: "#f0eeff" }}>{r.reviewer}</div>
-                    <div style={{ fontSize: 10, color: "#4a4a6a", fontFamily: "'Fira Code', monospace" }}>{r.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+          {productReviews.length === 0 ? (
+             <div style={{ color: "#7b7a9a", fontSize: 13, fontStyle: "italic" }}>No reviews yet. Be the first to review!</div>
+          ) : (
+            productReviews.map(r => (
+              <div key={r.id} style={{ padding: "16px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(130,80,255,0.1)", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: r.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "white", fontFamily: "'Playfair Display', serif" }}>{r.initials}</div>
+                    <div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700, color: "#f0eeff" }}>{r.reviewer}</div>
+                      <div style={{ fontSize: 10, color: "#4a4a6a", fontFamily: "'Fira Code', monospace" }}>{r.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                    </div>
                   </div>
+                  <Stars rating={r.rating} size={12} />
                 </div>
-                <Stars rating={r.rating} size={12} />
+                <p style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.6 }}>"{r.text}"</p>
               </div>
-              <p style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.6 }}>"{r.comment}"</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(130,80,255,0.12)", flexShrink: 0 }}>
@@ -344,14 +328,18 @@ function OrdersModal({ orders, onClose }: { orders: Order[]; onClose: () => void
 }
 
 // ── PRODUCT MODAL ─────────────────────────────────────────────────────────────
-function ProductModal({ product, onClose, saved, onSave, userReviews, onOpenReview, onOpenAllReviews, onBuy }: {
+function ProductModal({ product, onClose, saved, onSave, userReviews, productReviews, onOpenReview, onOpenAllReviews, onBuy }: {
   product: Product; onClose: () => void; saved: boolean; onSave: (id: string) => void;
-  userReviews: UserReview[]; onOpenReview: () => void; onOpenAllReviews: () => void; onBuy: (product: Product) => void;
+  userReviews: UserReview[]; productReviews?: any[]; onOpenReview: () => void; onOpenAllReviews: () => void; onBuy: (product: Product) => void;
 }) {
   const [activeImg, setActiveImg] = useState(0);
   const allImgs = [0, ...product.images.map((_, i) => i + 1)];
   const discount = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0;
   const myReview = userReviews.find(r => r.productId === product.id);
+  const reviewCount = productReviews ? productReviews.length : product.reviewCount;
+  const rating = productReviews && productReviews.length > 0
+    ? (productReviews.reduce((acc, r) => acc + r.rating, 0) / productReviews.length).toFixed(1)
+    : product.rating;
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -393,9 +381,9 @@ function ProductModal({ product, onClose, saved, onSave, userReviews, onOpenRevi
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(20px,3vw,28px)", fontWeight: 800, color: "#f0eeff", lineHeight: 1.2, marginBottom: 12 }}>{product.title}</h1>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-              <Stars rating={product.rating} size={13} />
-              <span style={{ fontSize: 13, color: "#c084fc", fontWeight: 600 }}>{product.rating}</span>
-              <span style={{ fontSize: 13, color: "#7b7a9a" }}>({product.reviewCount} reviews)</span>
+              <Stars rating={Number(rating)} size={13} />
+              <span style={{ fontSize: 13, color: "#c084fc", fontWeight: 600 }}>{rating}</span>
+              <span style={{ fontSize: 13, color: "#7b7a9a" }}>({reviewCount} reviews)</span>
               <button onClick={onOpenAllReviews} style={{ fontSize: 12, color: "#7b7a9a", background: "rgba(124,58,237,0.08)", border: "1px solid rgba(130,80,255,0.2)", padding: "3px 10px", borderRadius: 6, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>View all</button>
               <span style={{ fontSize: 13, color: "#7b7a9a" }}>{product.views.toLocaleString()} views</span>
             </div>
@@ -589,7 +577,7 @@ function FilterPanel({ filters, setFilters, onClose }: { filters: any; setFilter
 
 // ── MAIN BUY PAGE ─────────────────────────────────────────────────────────────
 export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void }) {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("Featured");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -597,6 +585,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState("All");
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
+  const [productReviews, setProductReviews] = useState<any[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showOrders, setShowOrders] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<Product | null>(null);
@@ -610,7 +599,44 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
 
   useEffect(() => {
     fetchPublicProducts();
+    fetchUserReviews();
   }, []);
+
+  const fetchProductReviews = async (productId: string) => {
+    try {
+      const reviews = await reviewService.getReviews(productId);
+      const mapped = reviews.map(r => ({
+        id: r.id,
+        reviewer: r.user?.name || "Anonymous",
+        initials: (r.user?.name || "A").slice(0, 2).toUpperCase(),
+        color: "linear-gradient(135deg,#0ea5e9,#6366f1)", // Mock color
+        rating: r.rating,
+        text: r.text,
+        date: new Date(r.created_at)
+      }));
+      setProductReviews(mapped);
+    } catch (error) {
+      console.error("Error fetching product reviews:", error);
+    }
+  };
+
+  const fetchUserReviews = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const reviews = await reviewService.getReviewsByUser(user.id);
+      const mapped: UserReview[] = reviews.map(r => ({
+        id: r.id,
+        productId: r.product_id,
+        rating: r.rating,
+        text: r.text,
+        date: new Date(r.created_at)
+      }));
+      setUserReviews(mapped);
+    } catch (error) {
+      console.error("Error fetching user reviews:", error);
+    }
+  };
 
   const handleBuy = (product: Product) => {
     const newOrder: Order = {
@@ -626,19 +652,10 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
 
   const fetchPublicProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('visibility', 'public')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await productService.getPublicProducts();
 
       const formattedProducts: Product[] = (data || []).map((p: any) => {
-        // Mock seller data based on user_id
-        const sellerIndex = Math.abs(p.user_id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % SELLERS.length;
-        const seller = SELLERS[sellerIndex];
-
+        const u = p.user;
         return {
           id: p.id,
           title: p.name,
@@ -654,8 +671,17 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           images: p.reference_images || [],
           thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", // Default gradient
           seller: {
-            ...seller,
-            location: p.city && p.country ? `${p.city}, ${p.country}` : seller.location
+            id: u?.id || "unknown",
+            name: u?.name || "Unknown Seller",
+            initials: (u?.name || "U").slice(0, 2).toUpperCase(),
+            verified: u?.role === "seller",
+            rating: 5.0, // Mock
+            sales: 0, // Mock
+            location: u?.country || "Unknown",
+            memberSince: new Date(u?.created_at || Date.now()).getFullYear().toString(),
+            bio: u?.bio || "No bio yet.",
+            avatar: u?.avatar_url || "",
+            avatarGradient: "linear-gradient(135deg,#7c3aed,#a855f7)"
           },
           rating: 0, // Mock
           reviewCount: 0, // Mock
@@ -665,12 +691,12 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           returns: p.returns || "No returns",
           postedAt: new Date(p.created_at).toLocaleDateString(),
           views: 0,
-          saves: p.share_count || 0,
+          saves: p.shares || 0,
           featured: false
         };
       });
 
-      setProducts([...formattedProducts, ...MOCK_PRODUCTS]);
+      setProducts(formattedProducts);
     } catch (error) {
       console.error('Error fetching public products:', error);
     }
@@ -678,17 +704,51 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
 
   const toggleSave = (id: string) => setSavedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const handleSubmitReview = useCallback((productId: string, rating: number, comment: string) => {
-    const review: UserReview = { id: Math.random().toString(36).slice(2), productId, rating, comment, date: new Date() };
-    setUserReviews(prev => [...prev, review]);
+  const handleSubmitReview = useCallback(async (productId: string, rating: number, text: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        alert("Please login to review");
+        return;
+    }
+    try {
+        const newReview = await reviewService.createReview({
+            user_id: user.id,
+            product_id: productId,
+            rating,
+            text
+        });
+        const mapped: UserReview = {
+            id: newReview.id,
+            productId: newReview.product_id,
+            rating: newReview.rating,
+            text: newReview.text,
+            date: new Date(newReview.created_at)
+        };
+        setUserReviews(prev => [...prev, mapped]);
+    } catch (error) {
+        console.error("Error submitting review:", error);
+        alert("Failed to submit review");
+    }
   }, []);
 
-  const handleEditReview = useCallback((id: string, rating: number, comment: string) => {
-    setUserReviews(prev => prev.map(r => r.id === id ? { ...r, rating, comment } : r));
+  const handleEditReview = useCallback(async (id: string, rating: number, text: string) => {
+    try {
+        await reviewService.updateReview(id, { rating, text });
+        setUserReviews(prev => prev.map(r => r.id === id ? { ...r, rating, text } : r));
+    } catch (error) {
+        console.error("Error updating review:", error);
+        alert("Failed to update review");
+    }
   }, []);
 
-  const handleDeleteReview = useCallback((id: string) => {
-    setUserReviews(prev => prev.filter(r => r.id !== id));
+  const handleDeleteReview = useCallback(async (id: string) => {
+    try {
+        await reviewService.deleteReview(id);
+        setUserReviews(prev => prev.filter(r => r.id !== id));
+    } catch (error) {
+        console.error("Error deleting review:", error);
+        alert("Failed to delete review");
+    }
   }, []);
 
   const activeFilterCount = [
@@ -949,7 +1009,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
                 <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
                   {products.filter(p => p.featured).slice(0, 3).map((product, i) => (
                     <div key={product.id} style={{ animation: `slideIn 0.5s ease ${i * 0.08}s both` }}>
-                      <ProductCard product={product} onClick={() => setSelectedProduct(product)} saved={savedIds.has(product.id)} onSave={toggleSave} userReview={userReviews.find(r => r.productId === product.id)} />
+                      <ProductCard product={product} onClick={() => { setSelectedProduct(product); fetchProductReviews(product.id); }} saved={savedIds.has(product.id)} onSave={toggleSave} userReview={userReviews.find(r => r.productId === product.id)} />
                     </div>
                   ))}
                 </div>
@@ -977,7 +1037,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
               <div className="products-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
                 {filtered.map((product, i) => (
                   <div key={product.id} style={{ animation: `slideIn 0.4s ease ${Math.min(i, 6) * 0.06}s both` }}>
-                    <ProductCard product={product} onClick={() => setSelectedProduct(product)} saved={savedIds.has(product.id)} onSave={toggleSave} userReview={userReviews.find(r => r.productId === product.id)} />
+                    <ProductCard product={product} onClick={() => { setSelectedProduct(product); fetchProductReviews(product.id); }} saved={savedIds.has(product.id)} onSave={toggleSave} userReview={userReviews.find(r => r.productId === product.id)} />
                   </div>
                 ))}
               </div>
@@ -1006,8 +1066,9 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           saved={savedIds.has(selectedProduct.id)}
           onSave={toggleSave}
           userReviews={userReviews}
+          productReviews={productReviews}
           onOpenReview={() => { setReviewProduct(selectedProduct); }}
-          onOpenAllReviews={() => { setAllReviewsProduct(selectedProduct); }}
+          onOpenAllReviews={() => { setAllReviewsProduct(selectedProduct); fetchProductReviews(selectedProduct.id); }}
           onBuy={handleBuy}
         />
       )}
@@ -1027,6 +1088,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
         <AllReviewsModal
           product={allReviewsProduct}
           userReviews={userReviews}
+          productReviews={productReviews}
           onClose={() => setAllReviewsProduct(null)}
           onOpenReview={() => { setReviewProduct(allReviewsProduct); setAllReviewsProduct(null); }}
         />

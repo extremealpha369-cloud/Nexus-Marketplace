@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import BuyPage from './pages/Buy';
-import FavouritesPage from './pages/favourites';
+import FavouritesPage from './pages/FavouritesPage';
 import PrivacyPolicy from './pages/Privacypolicy';
 import TermsOfService from './pages/Termsofservice';
 import CookiesPolicy from './pages/Cookiespolicy';
@@ -19,12 +19,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // A single, reliable auth state listener.
-    // This handles initial load, sign-in, sign-out, and token refreshes.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth State Change:", event, session?.user?.email);
 
-      // Always clear OAuth hash on auth state change to clean up URL
       if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -38,19 +35,17 @@ export default function App() {
             setView('update-password');
           }
         } else {
-          // No session or session is invalid/signed out
           setSession(null);
           if (event === 'SIGNED_OUT') {
-            setView('home'); // Or 'login' if you want to always force login page
+            setView('home');
           } else if (event === 'INITIAL_SESSION') {
-            // On initial load, if no session, go to home
             setView('home');
           }
         }
       } catch (err) {
         console.error("Error in onAuthStateChange:", err);
       } finally {
-        setLoading(false); // Set loading to false after initial session check
+        setLoading(false);
       }
     });
 

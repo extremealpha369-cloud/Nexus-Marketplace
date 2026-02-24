@@ -1,3 +1,6 @@
+export type Category = "Tech" | "Property" | "Entertainment" | "Fashion" | "Automotive";
+export type Condition = "New" | "Like New" | "Good" | "Used" | "Digital";
+
 export interface Profile {
   id: string;
   name: string;
@@ -41,6 +44,7 @@ export interface Review {
   replied_at?: string;
   created_at: string;
   user?: Profile; // Joined data
+  product?: Partial<Product>; // Joined data
 }
 
 export interface Favourite {

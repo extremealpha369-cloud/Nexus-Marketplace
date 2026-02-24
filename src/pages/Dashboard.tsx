@@ -1,66 +1,15 @@
 import React, { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
 import { supabase } from "../lib/supabase";
+import { productService } from "../services/productService";
+import { storageService } from "../services/storageService";
+import { reviewService } from "../services/reviewService";
+import { Product, ProductFormData, Review, Category, Condition } from "../types";
 
 // ─────────────────────────────────────────────
-// TYPES
+// TYPES (Removed, imported from ../types)
 // ─────────────────────────────────────────────
-type Category = "Tech" | "Property" | "Entertainment" | "Fashion" | "Automotive";
-type Visibility = "public" | "private";
-type Condition = "New" | "Like New" | "Good" | "Used" | "Digital";
 
-interface Review {
-  id: string;
-  reviewer: string;
-  initials: string;
-  avatarColor: string;
-  productName: string;
-  rating: number;
-  comment: string;
-  date: Date;
-  replied: boolean;
-  replyText: string;
-}
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  thumbnail: string | null;
-  referenceImages: string[];
-  contactNumber: string;
-  email: string;
-  price: string;
-  country: string;
-  state: string;
-  city: string;
-  tags: string[];
-  category: Category;
-  brand: string;
-  condition: Condition;
-  returns: string;
-  visibility: Visibility;
-  createdAt: Date;
-  shareCount: number;
-}
-
-interface ProductFormData {
-  name: string;
-  description: string;
-  thumbnail: string | null;
-  referenceImages: string[];
-  contactNumber: string;
-  email: string;
-  price: string;
-  country: string;
-  state: string;
-  city: string;
-  tags: string[];
-  category: Category | "";
-  brand: string;
-  condition: Condition | "";
-  returns: string;
-  visibility: Visibility;
-}
 
 const CATEGORIES: Category[] = ["Tech", "Property", "Entertainment", "Fashion", "Automotive"];
 const CONDITIONS: Condition[] = ["New", "Like New", "Good", "Used", "Digital"];
@@ -86,23 +35,31 @@ const EMPTY_FORM: ProductFormData = {
 // ─────────────────────────────────────────────
 // MOCK DATA
 // ─────────────────────────────────────────────
-const MOCK_PRODUCTS: Product[] = [
-  { id: "p1", name: "iPhone 15 Pro Max – Titanium", description: "Brand new sealed box. Titanium frame, 256GB, Natural finish. Includes warranty.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0101", email: "seller@nexus.io", price: "1299", country: "United States", state: "New York", city: "New York City", tags: ["iphone", "apple", "smartphone", "sealed"], category: "Tech", brand: "Apple", condition: "New", returns: "30-day returns", visibility: "public", createdAt: new Date("2025-01-15"), shareCount: 24 },
-  { id: "p2", name: "Downtown Loft – 2BR Modern", description: "Stunning 2-bedroom loft in the heart of downtown. Floor-to-ceiling windows, gym access.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0202", email: "realestate@nexus.io", price: "3200", country: "United States", state: "Texas", city: "Austin", tags: ["loft", "downtown", "2br", "modern"], category: "Property", brand: "N/A", condition: "Good", returns: "No returns", visibility: "public", createdAt: new Date("2025-01-10"), shareCount: 57 },
-  { id: "p3", name: "4K Cinema Projector Setup", description: "Complete home cinema setup. 4K laser projector, 120\" screen, Dolby Atmos soundbar.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0303", email: "", price: "850", country: "United States", state: "California", city: "Los Angeles", tags: ["projector", "cinema", "4k", "home-theater"], category: "Entertainment", brand: "Sony", condition: "Like New", returns: "14-day returns", visibility: "private", createdAt: new Date("2025-01-08"), shareCount: 12 },
-  { id: "p4", name: "MacBook Pro M3 – 16 inch", description: "M3 Max chip, 36GB RAM, 1TB SSD. AppleCare+ included. Like new condition.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0404", email: "tech@nexus.io", price: "2499", country: "United States", state: "California", city: "San Francisco", tags: ["macbook", "apple", "m3", "laptop"], category: "Tech", brand: "Apple", condition: "Like New", returns: "30-day returns", visibility: "public", createdAt: new Date("2025-01-05"), shareCount: 89 },
-  { id: "p5", name: "Vintage Leather Jacket – Medium", description: "Authentic 1970s brown leather biker jacket. Excellent patina, all zippers work.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0505", email: "", price: "220", country: "United States", state: "Illinois", city: "Chicago", tags: ["leather", "vintage", "jacket", "biker"], category: "Fashion", brand: "Custom", condition: "Good", returns: "No returns", visibility: "public", createdAt: new Date("2024-12-28"), shareCount: 33 },
-  { id: "p6", name: "Tesla Model 3 – 2024 Performance", description: "2024 Tesla Model 3 Performance. 18,000 miles, white/black interior, FSD included.", thumbnail: null, referenceImages: [], contactNumber: "+1 555 0606", email: "cars@nexus.io", price: "38500", country: "United States", state: "Florida", city: "Miami", tags: ["tesla", "electric", "ev", "performance"], category: "Automotive", brand: "Tesla", condition: "Like New", returns: "No returns", visibility: "private", createdAt: new Date("2024-12-20"), shareCount: 45 },
-];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const MOCK_REVIEWS: Review[] = [
-  { id: "r1", reviewer: "Alex Morgan", initials: "AM", avatarColor: "linear-gradient(135deg,#0ea5e9,#6366f1)", productName: "iPhone 15 Pro Max – Titanium", rating: 5, comment: "Absolutely perfect condition, exactly as described. Fast response from the seller and smooth transaction. Would buy again!", date: new Date("2025-01-18"), replied: true, replyText: "Thank you so much Alex! Really appreciate the kind words. Enjoy the phone! 🙏" },
-  { id: "r2", reviewer: "Sofia Patel", initials: "SP", avatarColor: "linear-gradient(135deg,#ec4899,#8b5cf6)", productName: "MacBook Pro M3 – 16 inch", rating: 4, comment: "Great laptop, works perfectly. Minor cosmetic scratch I wasn't told about but otherwise excellent. Seller was very communicative.", date: new Date("2025-01-12"), replied: false, replyText: "" },
-  { id: "r3", reviewer: "James Wu", initials: "JW", avatarColor: "linear-gradient(135deg,#f59e0b,#ef4444)", productName: "Downtown Loft – 2BR Modern", rating: 5, comment: "Rented this place for 3 months. Stunning apartment, super clean, great location. Noah was incredibly responsive to any issues. Highly recommended.", date: new Date("2025-01-09"), replied: true, replyText: "James you were a fantastic tenant! Glad you loved the place. Come back anytime!" },
-  { id: "r4", reviewer: "Priya Sharma", initials: "PS", avatarColor: "linear-gradient(135deg,#10b981,#06b6d4)", productName: "Vintage Leather Jacket – Medium", rating: 5, comment: "This jacket is absolutely stunning. The leather quality is incredible and it fits perfectly. Packaging was very careful. 10/10.", date: new Date("2024-12-30"), replied: false, replyText: "" },
-  { id: "r5", reviewer: "Carlos Mendez", initials: "CM", avatarColor: "linear-gradient(135deg,#f97316,#dc2626)", productName: "Tesla Model 3 – 2024 Performance", rating: 3, comment: "Car is great but had to wait 2 days longer than agreed for the handover. The FSD was not properly transferred. Seller did resolve it eventually.", date: new Date("2024-12-22"), replied: true, replyText: "Carlos, I sincerely apologize for the delays. The FSD transfer was an issue on Tesla's end but should be fully active now." },
-  { id: "r6", reviewer: "Lily Chen", initials: "LC", avatarColor: "linear-gradient(135deg,#8b5cf6,#ec4899)", productName: "4K Cinema Projector Setup", rating: 5, comment: "Best purchase I've made this year. The picture quality is unreal and everything was set up perfectly before delivery. Seller knows their stuff.", date: new Date("2025-01-06"), replied: false, replyText: "" },
-];
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const [p, r] = await Promise.all([
+        productService.getProducts(user.id),
+        // @ts-ignore
+        reviewService.getSellerReviews(user.id)
+      ]);
+      setProducts(p);
+      setReviews(r);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 const formatDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -663,13 +620,22 @@ const Toast = memo(({ message, type = "success" }: { message: string; type?: "su
 
 const FileUpload = memo(({ value, onChange, label, required }: { value: string | null; onChange: (v: string | null) => void; label: string; required?: boolean }) => {
   const [drag, setDrag] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const handleFile = useCallback((file: File) => {
+
+  const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => onChange(e.target?.result as string);
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const url = await storageService.uploadImage(file);
+      if (url) onChange(url);
+    } catch (error) {
+      console.error("Upload failed", error);
+    } finally {
+      setUploading(false);
+    }
   }, [onChange]);
+
   return (
     <div className="form-field">
       <label className="form-label">{label}{required && <span className="required-dot" />}</label>
@@ -684,8 +650,8 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
           onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
           onClick={() => inputRef.current?.click()}>
-          <div style={{ color: "var(--muted)" }}><Icon.Upload /></div>
-          <span className="upload-text">Click or drag to upload</span>
+          <div style={{ color: "var(--muted)" }}>{uploading ? "⏳" : <Icon.Upload />}</div>
+          <span className="upload-text">{uploading ? "Uploading..." : "Click or drag to upload"}</span>
           <span className="upload-sub">PNG, JPG, WEBP — max 5MB</span>
           <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
@@ -696,14 +662,21 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
 
 const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const addImages = useCallback((files: FileList) => {
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => onChange([...images, e.target?.result as string]);
-      reader.readAsDataURL(file);
-    });
+  const [uploading, setUploading] = useState(false);
+
+  const addImages = useCallback(async (files: FileList) => {
+    setUploading(true);
+    const newImages: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/")) continue;
+      const url = await storageService.uploadImage(file);
+      if (url) newImages.push(url);
+    }
+    onChange([...images, ...newImages]);
+    setUploading(false);
   }, [images, onChange]);
+
   return (
     <div className="form-field">
       <label className="form-label">Reference Images<span className="optional-tag">optional</span></label>
@@ -716,7 +689,7 @@ const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange
         ))}
         {images.length < 8 && (
           <div className="upload-zone" style={{ aspectRatio: "1", padding: 0, justifyContent: "center" }} onClick={() => inputRef.current?.click()}>
-            <Icon.Image />
+            {uploading ? "⏳" : <Icon.Image />}
             <input ref={inputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { if (e.target.files) addImages(e.target.files); e.target.value = ""; }} />
           </div>
         )}
@@ -940,7 +913,7 @@ const ProductCard = memo(({ product, onEdit, onDelete, onShare, onToggleVis, del
       <div className={`visibility-badge ${product.visibility}`}>{product.visibility === "public" ? <Icon.Globe /> : <Icon.Lock />}{product.visibility}</div>
     </div>
     <div className="product-body">
-      <div className="product-cat" style={{ background: CATEGORY_COLORS[product.category], color: CATEGORY_TEXT[product.category] }}>{CATEGORY_ICONS[product.category]} {product.category}</div>
+      <div className="product-cat" style={{ background: CATEGORY_COLORS[product.category as Category], color: CATEGORY_TEXT[product.category as Category] }}>{CATEGORY_ICONS[product.category as Category]} {product.category}</div>
       <div className="product-name">{product.name}</div>
       <div className="product-price">${Number(product.price).toLocaleString()}</div>
       <div className="product-location">📍 {[product.city, product.state, product.country].filter(Boolean).join(", ")}</div>
@@ -951,7 +924,7 @@ const ProductCard = memo(({ product, onEdit, onDelete, onShare, onToggleVis, del
       </div>
       {product.description && <div className="product-desc">{product.description}</div>}
       {product.tags.length > 0 && <div className="product-tags">{product.tags.slice(0, 3).map((t) => <span key={t} className="product-tag">#{t}</span>)}{product.tags.length > 3 && <span className="product-tag">+{product.tags.length - 3}</span>}</div>}
-      <div className="product-info-line">{formatDate(product.createdAt)} · {product.shareCount} shares</div>
+      <div className="product-info-line">{formatDate(new Date(product.created_at))} · {product.shares} shares</div>
       <div className="product-actions">
         <button className="action-btn edit" onClick={onEdit}><Icon.Edit /> Edit</button>
         <button className="action-btn share" onClick={onShare}><Icon.Share /> Share</button>
@@ -967,7 +940,7 @@ const ProductCardList = memo(({ product, onEdit, onDelete, onShare, onToggleVis,
     <div className="list-thumb">{product.thumbnail ? <img src={product.thumbnail} alt={product.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 9 }} /> : CATEGORY_ICONS[product.category]}</div>
     <div className="list-info">
       <div className="list-name">{product.name}</div>
-      <div className="list-meta">{CATEGORY_ICONS[product.category]} {product.category} · <span style={{ color: product.visibility === "public" ? "var(--green)" : "var(--red)" }}>{product.visibility}</span> · <span style={{ color: "var(--purple-p)", fontWeight: 600 }}>${Number(product.price).toLocaleString()}</span> · {[product.city, product.state].filter(Boolean).join(", ")} · {product.brand} · {product.condition} · {formatDate(product.createdAt)}</div>
+      <div className="list-meta">{CATEGORY_ICONS[product.category as Category]} {product.category} · <span style={{ color: product.visibility === "public" ? "var(--green)" : "var(--red)" }}>{product.visibility}</span> · <span style={{ color: "var(--purple-p)", fontWeight: 600 }}>${Number(product.price).toLocaleString()}</span> · {[product.city, product.state].filter(Boolean).join(", ")} · {product.brand} · {product.condition} · {formatDate(new Date(product.created_at))}</div>
     </div>
     <div className="list-actions">
       <button className="action-btn edit" onClick={onEdit}><Icon.Edit /></button>
@@ -985,7 +958,12 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
   const [replyInput, setReplyInput] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
-  const [editReplyText, setEditReplyText] = useState(review.replyText);
+  const [editReplyText, setEditReplyText] = useState(review.reply_text || "");
+
+  const reviewerName = review.user?.name || "Unknown User";
+  const initials = reviewerName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const productName = review.product?.name || "Unknown Product";
+  const replied = !!review.reply_text;
 
   const submitReply = useCallback(() => {
     if (!replyInput.trim()) return;
@@ -1003,23 +981,23 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
     <div className="review-card">
       <div className="review-top">
         <div className="review-author">
-          <div className="review-avatar" style={{ background: review.avatarColor }}>{review.initials}</div>
+          <div className="review-avatar" style={{ background: "linear-gradient(135deg,#0ea5e9,#6366f1)" }}>{initials}</div>
           <div className="review-info">
-            <h4>{review.reviewer}</h4>
-            <small>{formatDate(review.date)}</small>
+            <h4>{reviewerName}</h4>
+            <small>{formatDate(new Date(review.created_at))}</small>
           </div>
         </div>
         <div className="review-stars">{[1,2,3,4,5].map(s => <span key={s} style={{ fontSize: 11 }}>{s <= review.rating ? "⭐" : "☆"}</span>)}</div>
       </div>
-      <div className="review-product-tag">📦 {review.productName}</div>
-      <div className="review-text">"{review.comment}"</div>
+      <div className="review-product-tag">📦 {productName}</div>
+      <div className="review-text">"{review.text}"</div>
 
-      {review.replied && review.replyText && !editingReply && (
+      {replied && review.reply_text && !editingReply && (
         <div className="review-reply-box">
           <div className="review-reply-label">↩ Your reply</div>
-          <div className="review-reply-text">{review.replyText}</div>
+          <div className="review-reply-text">{review.reply_text}</div>
           <div style={{ marginTop: 8 }}>
-            <button className="action-btn edit" style={{ fontSize: 11 }} onClick={() => { setEditReplyText(review.replyText); setEditingReply(true); }}><Icon.Edit /> Edit reply</button>
+            <button className="action-btn edit" style={{ fontSize: 11 }} onClick={() => { setEditReplyText(review.reply_text || ""); setEditingReply(true); }}><Icon.Edit /> Edit reply</button>
           </div>
         </div>
       )}
@@ -1035,7 +1013,7 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
         </div>
       )}
 
-      {!review.replied && (
+      {!replied && (
         <div className="review-actions">
           {showReplyBox ? (
             <div className="reply-input-wrap" style={{ width: "100%" }}>
@@ -1060,13 +1038,10 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
 export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void, session: any }) {
   const user = session?.user;
 
-  // Add a guard clause to wait for the user session
-  if (!user) {
-    return <div className="w-full h-screen flex items-center justify-center bg-nexus-bg text-nexus-text">Redirecting...</div>;
-  }
+
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<Category | "All">("All");
   const [visFilter, setVisFilter] = useState<"all" | "public" | "private">("all");
@@ -1096,38 +1071,8 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   const fetchProducts = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Map database fields to frontend Product interface
-      const formattedProducts: Product[] = (data || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        thumbnail: p.thumbnail,
-        referenceImages: p.reference_images || [],
-        contactNumber: p.contact_number,
-        email: p.email,
-        price: p.price.toString(),
-        country: p.country,
-        state: p.state,
-        city: p.city,
-        tags: p.tags || [],
-        category: p.category as Category,
-        brand: p.brand,
-        condition: p.condition as Condition,
-        returns: p.returns,
-        visibility: p.visibility as Visibility,
-        createdAt: new Date(p.created_at),
-        shareCount: p.share_count || 0
-      }));
-      
-      setProducts(formattedProducts);
+      const data = await productService.getProducts(user.id);
+      setProducts(data);
     } catch (error: any) {
       console.error('Error fetching products:', error);
       showToast(error.message || "Failed to load products", "error");
@@ -1152,7 +1097,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     total: products.length,
     public: products.filter((p) => p.visibility === "public").length,
     private: products.filter((p) => p.visibility === "private").length,
-    totalShares: products.reduce((a, p) => a + p.shareCount, 0),
+    totalShares: products.reduce((a, p) => a + p.shares, 0),
   }), [products]);
 
   const handleAdd = async (data: ProductFormData) => {
@@ -1179,16 +1124,12 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
         condition: data.condition,
         returns: data.returns,
         visibility: data.visibility,
-        share_count: 0
+        shares: 0,
+        views: 0,
+        shipping_price: 0
       };
 
-      const { data: insertedData, error } = await supabase
-        .from('products')
-        .insert([newProduct])
-        .select()
-        .single();
-
-      if (error) throw error;
+      await productService.createProduct(newProduct);
 
       setShowAdd(false);
       showToast("Product listed successfully!");
@@ -1222,13 +1163,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
         visibility: data.visibility,
       };
 
-      const { error } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', editTarget.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await productService.updateProduct(editTarget.id, updates);
 
       setEditTarget(null);
       showToast("Product updated!");
@@ -1243,13 +1178,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     if (!deleteTarget || !user) return;
     
     try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', deleteTarget.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await productService.deleteProduct(deleteTarget.id);
 
       setDeleteTarget(null);
       showToast("Product deleted.");
@@ -1268,13 +1197,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     const newVisibility = product.visibility === "public" ? "private" : "public";
     
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ visibility: newVisibility })
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await productService.updateProduct(id, { visibility: newVisibility });
 
       showToast("Visibility updated!");
       fetchProducts(); // Refresh list
@@ -1284,14 +1207,26 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     }
   };
 
-  const handleReply = useCallback((reviewId: string, text: string) => {
-    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, replied: true, replyText: text } : r));
-    showToast("Reply posted!");
+  const handleReply = useCallback(async (reviewId: string, text: string) => {
+    try {
+      await reviewService.replyToReview(reviewId, text);
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply_text: text, replied_at: new Date().toISOString() } : r));
+      showToast("Reply posted!");
+    } catch (error: any) {
+      console.error("Error replying:", error);
+      showToast(error.message || "Failed to reply", "error");
+    }
   }, [showToast]);
 
-  const handleEditReply = useCallback((reviewId: string, text: string) => {
-    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, replyText: text } : r));
-    showToast("Reply updated!");
+  const handleEditReply = useCallback(async (reviewId: string, text: string) => {
+    try {
+      await reviewService.replyToReview(reviewId, text);
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply_text: text, replied_at: new Date().toISOString() } : r));
+      showToast("Reply updated!");
+    } catch (error: any) {
+      console.error("Error updating reply:", error);
+      showToast(error.message || "Failed to update reply", "error");
+    }
   }, [showToast]);
 
   const copyLink = useCallback((id: string) => {
@@ -1324,9 +1259,13 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   }, []);
 
   const editFormInitial = useMemo<ProductFormData>(() =>
-    editTarget ? { name: editTarget.name, description: editTarget.description, thumbnail: editTarget.thumbnail, referenceImages: editTarget.referenceImages, contactNumber: editTarget.contactNumber, email: editTarget.email, price: editTarget.price, country: editTarget.country, state: editTarget.state, city: editTarget.city, tags: editTarget.tags, category: editTarget.category, brand: editTarget.brand, condition: editTarget.condition, returns: editTarget.returns, visibility: editTarget.visibility } : EMPTY_FORM,
+    editTarget ? { name: editTarget.name, description: editTarget.description, thumbnail: editTarget.thumbnail, referenceImages: editTarget.reference_images, contactNumber: editTarget.contact_number, email: editTarget.email, price: editTarget.price.toString(), country: editTarget.country, state: editTarget.state, city: editTarget.city, tags: editTarget.tags, category: editTarget.category, brand: editTarget.brand, condition: editTarget.condition, returns: editTarget.returns, visibility: editTarget.visibility } : EMPTY_FORM,
     [editTarget]
   );
+
+  if (!user) {
+    return <div className="w-full h-screen flex items-center justify-center bg-nexus-bg text-nexus-text">Redirecting...</div>;
+  }
 
   return (
     <>
@@ -1352,7 +1291,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
               <div className="profile-stats">
                 <div className="profile-stat"><div className="profile-stat-val">{products.length}</div><div className="profile-stat-label">Listed</div></div>
                 <div className="profile-stat"><div className="profile-stat-val">{products.filter(p=>p.visibility==="public").length}</div><div className="profile-stat-label">Public</div></div>
-                <div className="profile-stat"><div className="profile-stat-val">{products.reduce((a,p)=>a+p.shareCount,0)}</div><div className="profile-stat-label">Shares</div></div>
+                <div className="profile-stat"><div className="profile-stat-val">{products.reduce((a,p)=>a+p.shares,0)}</div><div className="profile-stat-label">Shares</div></div>
               </div>
             </div>
           </div>

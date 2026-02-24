@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from "react";
 import { supabase } from "../lib/supabase";
+import { favouriteService } from "../services/favouriteService";
+import { Favourite } from "../types";
 
 // ── TYPES ──────────────────────────────────────────────────────────────────
 interface Seller {
@@ -7,7 +9,7 @@ interface Seller {
   rating: number; sales: number; location: string; avatarGradient: string;
 }
 interface SavedProduct {
-  id: string; title: string; description: string; price: number; originalPrice?: number;
+  id: string; favouriteId: string; title: string; description: string; price: number; originalPrice?: number;
   currency: string; category: string; subcategory: string; condition: string; brand: string;
   tags: string[]; thumbnailGradient: string; seller: Seller; rating: number;
   reviewCount: number; stock: number; shipping: string; shippingPrice: number;
@@ -20,24 +22,7 @@ type SortMode = "Date Saved" | "Price: Low" | "Price: High" | "Rating" | "Most V
 type ViewMode = "grid" | "list" | "mood";
 type PriorityFilter = "all" | "high" | "medium" | "low";
 
-// ── MOCK DATA ──────────────────────────────────────────────────────────────
-const SELLERS: Seller[] = [
-  { id: "s1", name: "Aria Voss", initials: "AV", verified: true, rating: 4.9, sales: 1240, location: "New York, US", avatarGradient: "linear-gradient(135deg,#7c3aed,#a855f7)" },
-  { id: "s2", name: "Kai Tanaka", initials: "KT", verified: true, rating: 4.8, sales: 876, location: "Tokyo, JP", avatarGradient: "linear-gradient(135deg,#0ea5e9,#6366f1)" },
-  { id: "s3", name: "Mira Osei", initials: "MO", verified: false, rating: 4.7, sales: 432, location: "London, UK", avatarGradient: "linear-gradient(135deg,#ec4899,#8b5cf6)" },
-  { id: "s4", name: "Luca Ferri", initials: "LF", verified: true, rating: 5.0, sales: 2100, location: "Milan, IT", avatarGradient: "linear-gradient(135deg,#f59e0b,#ef4444)" },
-  { id: "s5", name: "Zoe Chen", initials: "ZC", verified: true, rating: 4.6, sales: 658, location: "Singapore", avatarGradient: "linear-gradient(135deg,#34d399,#059669)" },
-];
-
-const MOCK_FAVOURITES: SavedProduct[] = [
-  { id: "p1", title: "Arc Flow Pro Mechanical Keyboard", description: "A precision-engineered 75% mechanical keyboard with POM plate, gasket mount, and lubed Gateron Oil King switches.", price: 349, originalPrice: 420, currency: "USD", category: "Electronics", subcategory: "Keyboards", condition: "New", brand: "ArcStudio", tags: ["keyboard", "mechanical", "premium", "75%"], thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", seller: SELLERS[0], rating: 4.9, reviewCount: 128, stock: 7, shipping: "Express (2-3 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "2 days ago", views: 3420, saves: 241, featured: true, badge: "Best Seller", savedAt: new Date("2025-02-01"), notes: "Perfect for my home office setup", priority: "high", notifyOnDrop: true },
-  { id: "p6", title: "Mono Wireless Earbuds — Titanium", description: "Machined from aerospace-grade titanium. Hybrid ANC with 42dB attenuation, 32-hour playtime, custom-tuned 10mm beryllium-coated driver.", price: 599, originalPrice: 699, currency: "USD", category: "Electronics", subcategory: "Audio", condition: "New", brand: "Mono Labs", tags: ["earbuds", "titanium", "ANC", "wireless"], thumbnailGradient: "linear-gradient(135deg,#0c0a1e 0%,#1e1b4b 50%,#312e81 100%)", seller: SELLERS[4], rating: 4.7, reviewCount: 203, stock: 11, shipping: "Express (1-2 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "4 days ago", views: 7840, saves: 1023, featured: true, badge: "Top Rated", savedAt: new Date("2025-02-05"), notes: "", priority: "high", notifyOnDrop: true },
-  { id: "p2", title: "Shiro Ceramic Pour-Over Set", description: "Handcrafted in Kyoto by master ceramicist Hiroshi Yamada. Each piece is unique with subtle celadon glazing.", price: 195, currency: "USD", category: "Home & Kitchen", subcategory: "Coffee", condition: "New", brand: "Yamada Ceramics", tags: ["coffee", "ceramic", "handcrafted", "kyoto"], thumbnailGradient: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#164e63 100%)", seller: SELLERS[1], rating: 5.0, reviewCount: 64, stock: 3, shipping: "Standard (5-7 days)", shippingPrice: 12, returns: "14-day returns", postedAt: "1 week ago", views: 1870, saves: 189, featured: true, badge: "Rare Find", savedAt: new Date("2025-01-28"), notes: "Gift idea for mum's birthday", priority: "medium", notifyOnDrop: false },
-  { id: "p3", title: "Obsidian Leather Folio Wallet", description: "Full-grain vegetable-tanned leather with a hand-stitched obsidian finish. Features 8 card slots, 2 hidden compartments.", price: 128, currency: "USD", category: "Fashion", subcategory: "Accessories", condition: "New", brand: "Ferri Milano", tags: ["wallet", "leather", "italian", "luxury"], thumbnailGradient: "linear-gradient(135deg,#1c1917 0%,#292524 50%,#44403c 100%)", seller: SELLERS[3], rating: 5.0, reviewCount: 312, stock: 14, shipping: "Express (1-2 days)", shippingPrice: 0, returns: "60-day returns", postedAt: "3 days ago", views: 5620, saves: 892, featured: false, badge: "Editor's Pick", savedAt: new Date("2025-01-20"), notes: "Replace current wallet", priority: "medium", notifyOnDrop: false },
-  { id: "p8", title: "Nexus Dev Stack License — Pro", description: "Lifetime license for the complete Nexus developer toolkit. Includes CLI, API access (5M requests/mo), priority support, and all future updates.", price: 399, currency: "USD", category: "Software", subcategory: "Developer Tools", condition: "Digital", brand: "Nexus", tags: ["software", "license", "developer", "API"], thumbnailGradient: "linear-gradient(135deg,#0d0520 0%,#1a0938 50%,#3b0764 100%)", seller: SELLERS[4], rating: 4.9, reviewCount: 567, stock: 999, shipping: "Instant Download", shippingPrice: 0, returns: "7-day refund", postedAt: "6 months ago", views: 24300, saves: 3410, featured: true, badge: "Digital", savedAt: new Date("2025-01-15"), notes: "Check team budget first", priority: "low", notifyOnDrop: false },
-  { id: "p4", title: "Lumina Desk Light — Matte Black", description: "Architectural task lighting inspired by Bauhaus principles. 4000K CRI-95 LED with stepless dimming and a 360° articulating arm.", price: 285, originalPrice: 310, currency: "USD", category: "Home & Kitchen", subcategory: "Lighting", condition: "New", brand: "Lumina Studio", tags: ["desk lamp", "bauhaus", "LED", "minimal"], thumbnailGradient: "linear-gradient(135deg,#0f0f0f 0%,#1a1a2e 50%,#16213e 100%)", seller: SELLERS[4], rating: 4.8, reviewCount: 97, stock: 22, shipping: "Standard (3-5 days)", shippingPrice: 0, returns: "30-day returns", postedAt: "5 days ago", views: 2130, saves: 304, featured: false, savedAt: new Date("2025-01-10"), notes: "", priority: "low", notifyOnDrop: true },
-  { id: "p5", title: "Voss Silk Scarf — Midnight Garden", description: "100% mulberry silk twill, hand-rolled edges, 140×140cm. Printed with original botanical illustration, individually numbered.", price: 220, currency: "USD", category: "Fashion", subcategory: "Scarves", condition: "New", brand: "Aria Atelier", tags: ["silk", "scarf", "art", "limited"], thumbnailGradient: "linear-gradient(135deg,#1a0533 0%,#3b0764 50%,#581c87 100%)", seller: SELLERS[0], rating: 4.9, reviewCount: 45, stock: 5, shipping: "Express (2-3 days)", shippingPrice: 8, returns: "14-day returns", postedAt: "1 day ago", views: 1240, saves: 167, featured: true, badge: "Limited", savedAt: new Date("2025-02-10"), notes: "", priority: "high", notifyOnDrop: true },
-];
+// ── MOCK DATA (Removed) ──────────────────────────────────────────────────────────────
 
 const CATEGORIES = ["All", "Electronics", "Fashion", "Home & Kitchen", "Software"];
 const SORT_OPTIONS: SortMode[] = ["Date Saved", "Price: Low", "Price: High", "Rating", "Most Viewed", "Priority"];
@@ -325,7 +310,7 @@ const MoodCard = memo(({ item, onRemove }: { item: SavedProduct; onRemove: () =>
 
 // ── MAIN PAGE ──────────────────────────────────────────────────────────────
 export default function FavouritesPage({ onNavigate }: { onNavigate: (page: 'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact') => void }) {
-  const [items, setItems] = useState<SavedProduct[]>(MOCK_FAVOURITES);
+  const [items, setItems] = useState<SavedProduct[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("Date Saved");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -340,31 +325,125 @@ export default function FavouritesPage({ onNavigate }: { onNavigate: (page: 'log
   const [bulkMode, setBulkMode] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  const fetchFavourites = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const data = await favouriteService.getFavourites(user.id);
+      const mapped: SavedProduct[] = data.map((f: any) => {
+        const p = f.product;
+        const u = p.user; // Seller
+        return {
+          id: p.id,
+          favouriteId: f.id,
+          title: p.name,
+          description: p.description,
+          price: p.price,
+          originalPrice: p.original_price, // Assuming this field exists or is null
+          currency: "USD",
+          category: p.category,
+          subcategory: "", // Not in DB yet
+          condition: p.condition,
+          brand: p.brand,
+          tags: p.tags || [],
+          thumbnailGradient: "linear-gradient(135deg,#1a1035 0%,#2d1b69 50%,#4c1d95 100%)", // Mock gradient
+          seller: {
+            id: u?.id || "unknown",
+            name: u?.name || "Unknown Seller",
+            initials: (u?.name || "U").slice(0, 2).toUpperCase(),
+            verified: u?.role === "seller",
+            rating: 5.0, // Mock rating
+            sales: 0, // Mock sales
+            location: u?.country || "Unknown",
+            avatarGradient: "linear-gradient(135deg,#7c3aed,#a855f7)"
+          },
+          rating: 5.0, // Mock
+          reviewCount: 0, // Mock
+          stock: 10, // Mock
+          shipping: "Standard", // Mock
+          shippingPrice: p.shipping_price || 0,
+          returns: p.returns,
+          postedAt: new Date(p.created_at).toLocaleDateString(),
+          views: p.views || 0,
+          saves: p.shares || 0,
+          featured: false,
+          badge: "",
+          savedAt: new Date(f.created_at),
+          notes: f.notes || "",
+          priority: f.priority as "high" | "medium" | "low",
+          notifyOnDrop: f.notify_on_drop
+        };
+      });
+      setItems(mapped);
+    } catch (error) {
+      console.error("Error fetching favourites:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFavourites();
+  }, [fetchFavourites]);
+
   const showToast = useCallback((msg: string, type: "success" | "error" | "info" = "success") => {
     clearTimeout(toastTimer.current);
     setToast({ msg, type });
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const handleRemove = useCallback((id: string) => {
-    setItems(prev => prev.filter(p => p.id !== id));
-    showToast("Removed from favourites");
+  const handleRemove = useCallback(async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      await favouriteService.removeFavourite(user.id, id);
+      setItems(prev => prev.filter(p => p.id !== id));
+      showToast("Removed from favourites");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to remove", "error");
+    }
   }, [showToast]);
 
-  const handleNote = useCallback((id: string, note: string) => {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, notes: note } : p));
-    showToast("Note saved!");
-  }, [showToast]);
+  const handleNote = useCallback(async (id: string, note: string) => {
+    const item = items.find(p => p.id === id);
+    if (!item) return;
 
-  const handlePriority = useCallback((id: string, priority: "high" | "medium" | "low") => {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, priority } : p));
-    showToast("Priority updated!");
-  }, [showToast]);
+    try {
+      await favouriteService.updateFavourite(item.favouriteId, { notes: note });
+      setItems(prev => prev.map(p => p.id === id ? { ...p, notes: note } : p));
+      showToast("Note saved!");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to save note", "error");
+    }
+  }, [items, showToast]);
 
-  const handleToggleNotify = useCallback((id: string) => {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, notifyOnDrop: !p.notifyOnDrop } : p));
-    showToast("Price alert updated", "info");
-  }, [showToast]);
+  const handlePriority = useCallback(async (id: string, priority: "high" | "medium" | "low") => {
+    const item = items.find(p => p.id === id);
+    if (!item) return;
+
+    try {
+      await favouriteService.updateFavourite(item.favouriteId, { priority });
+      setItems(prev => prev.map(p => p.id === id ? { ...p, priority } : p));
+      showToast("Priority updated!");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to update priority", "error");
+    }
+  }, [items, showToast]);
+
+  const handleToggleNotify = useCallback(async (id: string) => {
+    const item = items.find(p => p.id === id);
+    if (!item) return;
+
+    try {
+      await favouriteService.updateFavourite(item.favouriteId, { notify_on_drop: !item.notifyOnDrop });
+      setItems(prev => prev.map(p => p.id === id ? { ...p, notifyOnDrop: !p.notifyOnDrop } : p));
+      showToast("Price alert updated", "info");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to update alert", "error");
+    }
+  }, [items, showToast]);
 
   const handleBulkRemove = useCallback(() => {
     setItems(prev => prev.filter(p => !selected.has(p.id)));
