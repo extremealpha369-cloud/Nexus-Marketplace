@@ -691,7 +691,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           returns: p.returns || "No returns",
           postedAt: new Date(p.created_at).toLocaleDateString(),
           views: 0,
-          saves: p.shares || 0,
+          saves: p.share_count || 0,
           featured: false
         };
       });

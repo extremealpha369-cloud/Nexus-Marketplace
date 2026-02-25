@@ -365,7 +365,7 @@ export default function FavouritesPage({ onNavigate }: { onNavigate: (page: 'log
           returns: p.returns,
           postedAt: new Date(p.created_at).toLocaleDateString(),
           views: p.views || 0,
-          saves: p.shares || 0,
+          saves: p.share_count || 0,
           featured: false,
           badge: "",
           savedAt: new Date(f.created_at),
