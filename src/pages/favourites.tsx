@@ -30,7 +30,7 @@ const PRIORITY_MAP = { high: { color: "#f87171", bg: "rgba(248,113,113,0.12)", b
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function ThumbnailSVG({ gradient, title, badge }: { gradient: string; title: string; badge?: string }) {
-  const words = title.split(" ").slice(0, 2).join(" ");
+  const words = (title || "").split(" ").slice(0, 2).join(" ");
   return (
     <div style={{ width: "100%", height: "100%", background: gradient, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.06) 0%, transparent 60%)" }} />
@@ -466,7 +466,7 @@ export default function FavouritesPage({ onNavigate }: { onNavigate: (page: 'log
   const filtered = useMemo(() => {
     return items.filter(p => {
       const q = search.toLowerCase();
-      const matchSearch = !q || p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some(t => t.includes(q)) || p.brand.toLowerCase().includes(q);
+      const matchSearch = !q || (p.title || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.tags || []).some(t => t.includes(q)) || (p.brand || "").toLowerCase().includes(q);
       const matchCat = activeCategory === "All" || p.category === activeCategory;
       const matchPriority = priorityFilter === "all" || p.priority === priorityFilter;
       const matchNotify = !notifyOnly || p.notifyOnDrop;

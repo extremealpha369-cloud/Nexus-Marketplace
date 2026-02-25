@@ -761,8 +761,8 @@ export default function Home({ onNavigate, session }: HomeProps) {
               </div>
 
               <div className="nav-right nav-user">
-                <span className="nav-username">@{session.user?.email?.split('@')[0] || 'user'}</span>
-                <div className="nav-avatar">{session.user?.email?.[0].toUpperCase() || 'U'}</div>
+                <span className="nav-username">@{session.user?.email?.split('@')?.[0] || 'user'}</span>
+                <div className="nav-avatar">{session.user?.email?.[0]?.toUpperCase() || 'U'}</div>
                 <button className="btn-logout" onClick={() => supabase.auth.signOut()}>Log out</button>
               </div>
             </>

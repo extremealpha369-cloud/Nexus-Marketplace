@@ -35,31 +35,6 @@ const EMPTY_FORM: ProductFormData = {
 // ─────────────────────────────────────────────
 // MOCK DATA
 // ─────────────────────────────────────────────
-  const [products, setProducts] = useState<Product[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    try {
-      const [p, r] = await Promise.all([
-        productService.getProducts(user.id),
-        // @ts-ignore
-        reviewService.getSellerReviews(user.id)
-      ]);
-      setProducts(p);
-      setReviews(r);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 const formatDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -923,7 +898,7 @@ const ProductCard = memo(({ product, onEdit, onDelete, onShare, onToggleVis, del
         <span className="product-meta-chip">↩ {product.returns}</span>
       </div>
       {product.description && <div className="product-desc">{product.description}</div>}
-      {product.tags.length > 0 && <div className="product-tags">{product.tags.slice(0, 3).map((t) => <span key={t} className="product-tag">#{t}</span>)}{product.tags.length > 3 && <span className="product-tag">+{product.tags.length - 3}</span>}</div>}
+      {(product.tags || []).length > 0 && <div className="product-tags">{(product.tags || []).slice(0, 3).map((t) => <span key={t} className="product-tag">#{t}</span>)}{(product.tags || []).length > 3 && <span className="product-tag">+{(product.tags || []).length - 3}</span>}</div>}
       <div className="product-info-line">{formatDate(new Date(product.created_at))} · {product.shares} shares</div>
       <div className="product-actions">
         <button className="action-btn edit" onClick={onEdit}><Icon.Edit /> Edit</button>
@@ -1057,9 +1032,9 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   const [copied, setCopied] = useState(false);
 
   // User Info from Session
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')?.[0] || "User";
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
-  const userId = user?.id?.slice(0, 8).toUpperCase() || "UNKNOWN";
+  const userId = user?.id?.slice(0, 8)?.toUpperCase() || "UNKNOWN";
   const userRole = "Seller · Verified"; // Mock role for now
 
   useEffect(() => {
@@ -1087,7 +1062,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
 
   const filtered = useMemo(() => products.filter((p) => {
     const q = search.toLowerCase();
-    const matchSearch = !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some((t) => t.includes(q)) || p.category.toLowerCase().includes(q);
+    const matchSearch = !q || (p.name || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.tags || []).some((t) => t.includes(q)) || (p.category || "").toLowerCase().includes(q);
     const matchCat = catFilter === "All" || p.category === catFilter;
     const matchVis = visFilter === "all" || p.visibility === visFilter;
     return matchSearch && matchCat && matchVis;

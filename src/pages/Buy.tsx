@@ -29,7 +29,7 @@ const BRANDS = ["All Brands", "ArcStudio", "Yamada Ceramics", "Ferri Milano", "L
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
 function ThumbnailSVG({ gradient, title, badge }: { gradient: string; title: string; badge?: string }) {
-  const words = title.split(" ").slice(0, 2).join(" ");
+  const words = (title || "").split(" ").slice(0, 2).join(" ");
   return (
     <div style={{ width: "100%", height: "100%", background: gradient, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.06) 0%, transparent 60%)" }} />
@@ -760,7 +760,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
-    const matchSearch = !q || p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.tags.some(t => t.includes(q)) || p.seller.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
+    const matchSearch = !q || (p.title || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.tags || []).some(t => t.includes(q)) || (p.seller?.name || "").toLowerCase().includes(q) || (p.brand || "").toLowerCase().includes(q);
     const cat = activeCategory === "All" || p.category === activeCategory;
     const fCat = filters.category === "All" || p.category === filters.category;
     const fCond = filters.condition === "Any" || p.condition === filters.condition;
@@ -773,7 +773,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     const fStock = !filters.inStock || p.stock > 0;
     const fVerified = !filters.verified || p.seller.verified;
     // Location filters (case-insensitive partial match against seller location)
-    const sellerLoc = p.seller.location.toLowerCase();
+    const sellerLoc = (p.seller?.location || "").toLowerCase();
     const fCountry = !filters.country || sellerLoc.includes(filters.country.toLowerCase());
     const fState = !filters.state || sellerLoc.includes(filters.state.toLowerCase());
     const fCity = !filters.city || sellerLoc.includes(filters.city.toLowerCase());
