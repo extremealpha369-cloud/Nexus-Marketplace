@@ -58,12 +58,6 @@ export default function App() {
         console.log("Auth State Change:", event, session?.user?.email);
         clearTimeout(timeoutId);
 
-        // Only clear hash if we have a valid session or it's a recovery event
-        // This prevents clearing the token before Supabase processes it
-        if (session && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
         try {
           if (session) {
             setSession(session);
@@ -109,7 +103,7 @@ export default function App() {
     if (loading) return; // Wait until auth state is determined
 
     const protectedRoutes = ['dashboard', 'favourites', 'update-password'];
-    const authRoutes = ['login', 'signup'];
+    const authRoutes = ['login', 'signup', 'home'];
 
     if (session) {
       // User is logged in.
