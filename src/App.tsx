@@ -32,27 +32,45 @@ export default function App() {
 
     let subscription: any;
     try {
+      // Check for errors in the URL fragment (hash) immediately
+      const hash = window.location.hash;
+      if (hash && hash.includes('error_description')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const errorDescription = params.get('error_description');
+        console.error("Auth Error from URL:", errorDescription);
+        // We can show this error to the user if needed, but for now just log it
+      }
+
       const result = supabase.auth.onAuthStateChange((event, session) => {
         console.log("Auth State Change:", event, session?.user?.email);
         clearTimeout(timeoutId);
 
-        if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
+        // Only clear hash if we have a valid session or it's a recovery event
+        // This prevents clearing the token before Supabase processes it
+        if (session && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
 
         try {
           if (session) {
             setSession(session);
-            if (event === 'SIGNED_IN') {
-              setView('dashboard');
+            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+              // Ensure we go to dashboard if we have a session, even on INITIAL_SESSION
+              // But only if we are currently on a public/auth page
+              const authRoutes = ['login', 'signup', 'home'];
+              if (authRoutes.includes(view)) {
+                 setView('dashboard');
+              }
             } else if (event === 'PASSWORD_RECOVERY') {
               setView('update-password');
             }
           } else {
             setSession(null);
-            if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+            if (event === 'SIGNED_OUT') {
               setView('home');
             }
+            // Don't force 'home' on INITIAL_SESSION if we are already on a valid page
+            // just let the route protection effect handle it
           }
         } catch (err) {
           console.error("Error in onAuthStateChange callback:", err);

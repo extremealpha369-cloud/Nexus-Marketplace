@@ -295,9 +295,25 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
       if (error) throw error;
     } catch (err: any) {
       console.error("Social Login Error:", err);
-      setLoginError(err.message || `Failed to sign in with ${provider}`);
+      if (err.message && err.message.includes("verify your account")) {
+        setLoginError("Your Discord account or email is not verified. Please verify it on Discord first.");
+      } else {
+        setLoginError(err.message || `Failed to sign in with ${provider}`);
+      }
     }
   };
+
+  // Check for errors in URL on mount
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('error_description')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const errorDescription = params.get('error_description');
+      if (errorDescription) {
+        setLoginError(decodeURIComponent(errorDescription).replace(/\+/g, ' '));
+      }
+    }
+  }, []);
 
   const handleSendCode = async (e: FormEvent) => {
     e.preventDefault();
