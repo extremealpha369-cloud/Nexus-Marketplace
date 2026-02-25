@@ -701,8 +701,9 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
     try {
       const url = await storageService.uploadImage(croppedFile);
       if (url) onChange(url);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload failed", error);
+      alert(`Upload failed: ${error.message || "Unknown error"}`);
     } finally {
       setUploading(false);
     }
@@ -775,8 +776,9 @@ const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange
           setPendingUrls([]);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload failed", error);
+      alert(`Upload failed: ${error.message || "Unknown error"}`);
       if (currentCropIndex < cropFiles.length - 1) {
         setCurrentCropIndex(currentCropIndex + 1);
       } else {

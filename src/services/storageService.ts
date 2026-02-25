@@ -3,6 +3,17 @@ import { supabase } from '../lib/supabase';
 export const storageService = {
   async uploadImage(file: File, bucket: string = 'products'): Promise<string | null> {
     try {
+      // Ensure bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      if (!buckets?.find(b => b.name === bucket)) {
+        const { error: createError } = await supabase.storage.createBucket(bucket, {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp']
+        });
+        if (createError) console.warn('Bucket creation warning:', createError);
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
@@ -22,7 +33,7 @@ export const storageService = {
       return data.publicUrl;
     } catch (error) {
       console.error('Error uploading image:', error);
-      return null;
+      throw error;
     }
   },
 
