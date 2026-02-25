@@ -41,6 +41,19 @@ export default function App() {
         // We can show this error to the user if needed, but for now just log it
       }
 
+      // Check for existing session immediately
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setSession(session);
+          // If we have a session and are on a public auth page, redirect to dashboard
+          const authRoutes = ['login', 'signup', 'home'];
+          if (authRoutes.includes(view)) {
+             setView('dashboard');
+          }
+        }
+        setLoading(false);
+      });
+
       const result = supabase.auth.onAuthStateChange((event, session) => {
         console.log("Auth State Change:", event, session?.user?.email);
         clearTimeout(timeoutId);
