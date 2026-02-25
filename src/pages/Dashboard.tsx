@@ -4,6 +4,8 @@ import { productService } from "../services/productService";
 import { storageService } from "../services/storageService";
 import { reviewService } from "../services/reviewService";
 import { Product, ProductFormData, Review, Category, Condition } from "../types";
+import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // ─────────────────────────────────────────────
 // TYPES (Removed, imported from ../types)
@@ -593,23 +595,118 @@ const Toast = memo(({ message, type = "success" }: { message: string; type?: "su
   </div>
 ));
 
+function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: number) {
+  return centerCrop(
+    makeAspectCrop({ unit: '%', width: 90 }, aspect, mediaWidth, mediaHeight),
+    mediaWidth,
+    mediaHeight
+  );
+}
+
+const ImageCropper = memo(({ file, aspect, onCrop, onCancel }: { file: File, aspect: number, onCrop: (file: File) => void, onCancel: () => void }) => {
+  const [imgSrc, setImgSrc] = useState('');
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+
+  useEffect(() => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => setImgSrc(reader.result?.toString() || ''));
+    reader.readAsDataURL(file);
+  }, [file]);
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    setCrop(centerAspectCrop(width, height, aspect));
+  }
+
+  function handleSave() {
+    if (completedCrop && imgRef.current) {
+      const canvas = document.createElement('canvas');
+      const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+      const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+      // Enforce fixed width (800px) while maintaining aspect ratio
+      const targetWidth = 800;
+      const targetHeight = targetWidth / aspect;
+      
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) return;
+
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(
+        imgRef.current,
+        completedCrop.x * scaleX,
+        completedCrop.y * scaleY,
+        completedCrop.width * scaleX,
+        completedCrop.height * scaleY,
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
+
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        const croppedFile = new File([blob], file.name, { type: 'image/jpeg' });
+        onCrop(croppedFile);
+      }, 'image/jpeg', 0.95);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 9999 }}>
+      <div className="modal-content" style={{ maxWidth: '600px', width: '90%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
+        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>Crop Image</h3>
+          <button type="button" className="modal-close" onClick={onCancel} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><Icon.X /></button>
+        </div>
+        <div style={{ maxHeight: '60vh', overflow: 'auto', display: 'flex', justifyContent: 'center', background: '#000', borderRadius: '8px' }}>
+          {imgSrc && (
+            <ReactCrop
+              crop={crop}
+              onChange={(_, percentCrop) => setCrop(percentCrop)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={aspect}
+            >
+              <img ref={imgRef} src={imgSrc} alt="Crop me" onLoad={onImageLoad} style={{ maxWidth: '100%', maxHeight: '50vh' }} />
+            </ReactCrop>
+          )}
+        </div>
+        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+          <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="button" className="btn-purple" onClick={handleSave} disabled={!completedCrop}>Apply Crop</button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const FileUpload = memo(({ value, onChange, label, required }: { value: string | null; onChange: (v: string | null) => void; label: string; required?: boolean }) => {
   const [drag, setDrag] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback(async (file: File) => {
+  const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
+    setCropFile(file);
+  }, []);
+
+  const handleCrop = async (croppedFile: File) => {
+    setCropFile(null);
     setUploading(true);
     try {
-      const url = await storageService.uploadImage(file);
+      const url = await storageService.uploadImage(croppedFile);
       if (url) onChange(url);
     } catch (error) {
       console.error("Upload failed", error);
     } finally {
       setUploading(false);
     }
-  }, [onChange]);
+  };
 
   return (
     <div className="form-field">
@@ -617,7 +714,7 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
       {value ? (
         <div className="upload-preview">
           <img src={value} alt="preview" loading="lazy" />
-          <button className="upload-remove" onClick={() => onChange(null)}><Icon.X /></button>
+          <button type="button" className="upload-remove" onClick={() => onChange(null)}><Icon.X /></button>
         </div>
       ) : (
         <div className={`upload-zone ${drag ? "drag" : ""}`}
@@ -628,8 +725,16 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
           <div style={{ color: "var(--muted)" }}>{uploading ? "⏳" : <Icon.Upload />}</div>
           <span className="upload-text">{uploading ? "Uploading..." : "Click or drag to upload"}</span>
           <span className="upload-sub">PNG, JPG, WEBP — max 5MB</span>
-          <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
         </div>
+      )}
+      {cropFile && (
+        <ImageCropper
+          file={cropFile}
+          aspect={4 / 3}
+          onCrop={handleCrop}
+          onCancel={() => setCropFile(null)}
+        />
       )}
     </div>
   );
@@ -638,19 +743,63 @@ const FileUpload = memo(({ value, onChange, label, required }: { value: string |
 const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [cropFiles, setCropFiles] = useState<File[]>([]);
+  const [currentCropIndex, setCurrentCropIndex] = useState(0);
+  const [pendingUrls, setPendingUrls] = useState<string[]>([]);
 
-  const addImages = useCallback(async (files: FileList) => {
-    setUploading(true);
-    const newImages: string[] = [];
+  const addImages = useCallback((files: FileList) => {
+    const newFiles: File[] = [];
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file.type.startsWith("image/")) continue;
-      const url = await storageService.uploadImage(file);
-      if (url) newImages.push(url);
+      if (files[i].type.startsWith("image/")) newFiles.push(files[i]);
     }
-    onChange([...images, ...newImages]);
-    setUploading(false);
-  }, [images, onChange]);
+    if (newFiles.length > 0) {
+      setCropFiles(newFiles);
+      setCurrentCropIndex(0);
+      setPendingUrls([]);
+    }
+  }, []);
+
+  const handleCrop = async (croppedFile: File) => {
+    setUploading(true);
+    try {
+      const url = await storageService.uploadImage(croppedFile);
+      if (url) {
+        const newPending = [...pendingUrls, url];
+        setPendingUrls(newPending);
+        
+        if (currentCropIndex < cropFiles.length - 1) {
+          setCurrentCropIndex(currentCropIndex + 1);
+        } else {
+          onChange([...images, ...newPending]);
+          setCropFiles([]);
+          setPendingUrls([]);
+        }
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      if (currentCropIndex < cropFiles.length - 1) {
+        setCurrentCropIndex(currentCropIndex + 1);
+      } else {
+        onChange([...images, ...pendingUrls]);
+        setCropFiles([]);
+        setPendingUrls([]);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCancelCrop = () => {
+    if (currentCropIndex < cropFiles.length - 1) {
+      setCurrentCropIndex(currentCropIndex + 1);
+    } else {
+      if (pendingUrls.length > 0) {
+        onChange([...images, ...pendingUrls]);
+      }
+      setCropFiles([]);
+      setPendingUrls([]);
+    }
+  };
 
   return (
     <div className="form-field">
@@ -659,7 +808,7 @@ const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange
         {images.map((img, i) => (
           <div key={i} className="ref-image-item">
             <img src={img} alt="" loading="lazy" />
-            <button className="upload-remove" onClick={() => onChange(images.filter((_, j) => j !== i))} style={{ top: 4, right: 4 }}><Icon.X /></button>
+            <button type="button" className="upload-remove" onClick={() => onChange(images.filter((_, j) => j !== i))} style={{ top: 4, right: 4 }}><Icon.X /></button>
           </div>
         ))}
         {images.length < 8 && (
@@ -669,6 +818,15 @@ const RefImagesUpload = memo(({ images, onChange }: { images: string[]; onChange
           </div>
         )}
       </div>
+      {cropFiles.length > 0 && (
+        <ImageCropper
+          key={currentCropIndex}
+          file={cropFiles[currentCropIndex]}
+          aspect={4 / 3}
+          onCrop={handleCrop}
+          onCancel={handleCancelCrop}
+        />
+      )}
     </div>
   );
 });
