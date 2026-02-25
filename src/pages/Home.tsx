@@ -778,8 +778,17 @@ export default function Home({ onNavigate, session }: HomeProps) {
           <p className="hero-sub">Nexus gives your team the tools, speed, and confidence to ship products that actually matter. No noise. No bloat. Just power.</p>
 
           <div className="hero-cta">
-            <button onClick={() => onNavigate('signup')} className="btn-hero">Start for free →</button>
-            <a href="#features" className="btn-hero-ghost">See how it works</a>
+            {!session ? (
+              <>
+                <button onClick={() => onNavigate('signup')} className="btn-hero">Start for free →</button>
+                <a href="#features" className="btn-hero-ghost">See how it works</a>
+              </>
+            ) : (
+              <>
+                <button onClick={() => onNavigate('dashboard')} className="btn-hero">Go to Dashboard →</button>
+                <a href="#features" className="btn-hero-ghost">See how it works</a>
+              </>
+            )}
           </div>
           <div className="scroll-indicator">
             <span>scroll</span>
@@ -1111,8 +1120,14 @@ export default function Home({ onNavigate, session }: HomeProps) {
             <h2 className="section-title">Ready to ship<br /><span style={{ color: "var(--purple-pale)" }}>10x faster?</span></h2>
             <p>Join 40,000+ teams who stopped fighting their tools and started building the things that actually matter. Your first workspace is always free.</p>
             <div className="cta-btns">
-              <button onClick={() => onNavigate('signup')} className="btn-hero">Create free account →</button>
-              <button onClick={() => onNavigate('login')} className="btn-hero-ghost">I have an account</button>
+              {!session ? (
+                <>
+                  <button onClick={() => onNavigate('signup')} className="btn-hero">Create free account →</button>
+                  <button onClick={() => onNavigate('login')} className="btn-hero-ghost">I have an account</button>
+                </>
+              ) : (
+                <button onClick={() => onNavigate('dashboard')} className="btn-hero">Go to Dashboard →</button>
+              )}
             </div>
           </div>
         </section>
