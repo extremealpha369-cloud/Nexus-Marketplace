@@ -17,6 +17,7 @@ export default function App() {
   const [view, setView] = useState<'login' | 'signup' | 'home' | 'dashboard' | 'buy' | 'favourites' | 'privacy' | 'terms' | 'cookies' | 'about' | 'contact' | 'update-password'>('home');
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     // Safety timeout to prevent permanent loading screen
@@ -32,22 +33,34 @@ export default function App() {
 
     let subscription: any;
     try {
-      // Check for errors in the URL fragment (hash) immediately
+      // Check for errors in the URL fragment (hash) or query string immediately
       const hash = window.location.hash;
+      const search = window.location.search;
+      
       if (hash && hash.includes('error_description')) {
         const params = new URLSearchParams(hash.substring(1));
         const errorDescription = params.get('error_description');
-        console.error("Auth Error from URL:", errorDescription);
-        // We can show this error to the user if needed, but for now just log it
+        console.error("Auth Error from URL Hash:", errorDescription);
+        setAuthError(errorDescription ? decodeURIComponent(errorDescription).replace(/\+/g, ' ') : "Authentication failed");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (search && search.includes('error_description')) {
+        const params = new URLSearchParams(search);
+        const errorDescription = params.get('error_description');
+        console.error("Auth Error from URL Search:", errorDescription);
+        setAuthError(errorDescription ? decodeURIComponent(errorDescription).replace(/\+/g, ' ') : "Authentication failed");
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
 
       // Check for existing session immediately
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setSession(session);
+          
           // If we have a session and are on a public auth page, redirect to dashboard
-          const authRoutes = ['login', 'signup', 'home'];
-          if (authRoutes.includes(view)) {
+          const authRoutes = ['login', 'signup'];
+          const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+          
+          if (authRoutes.includes(view) || isOAuthCallback) {
              setView('dashboard');
           }
         }
@@ -61,12 +74,26 @@ export default function App() {
         try {
           if (session) {
             setSession(session);
-            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-              // Ensure we go to dashboard if we have a session, even on INITIAL_SESSION
-              // But only if we are currently on a public/auth page
-              const authRoutes = ['login', 'signup', 'home'];
-              if (authRoutes.includes(view)) {
+            
+            const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+            
+            if (event === 'SIGNED_IN') {
+              // Always go to dashboard on active sign in
+              setView('dashboard');
+              
+              // Clear the URL parameters after processing to keep the URL clean
+              if (isOAuthCallback) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+            } else if (event === 'INITIAL_SESSION') {
+              // On initial load, only redirect if on auth pages or if returning from OAuth
+              const authRoutes = ['login', 'signup'];
+              if (authRoutes.includes(view) || isOAuthCallback) {
                  setView('dashboard');
+                 
+                 if (isOAuthCallback) {
+                   window.history.replaceState({}, document.title, window.location.pathname);
+                 }
               }
             } else if (event === 'PASSWORD_RECOVERY') {
               setView('update-password');
@@ -103,7 +130,7 @@ export default function App() {
     if (loading) return; // Wait until auth state is determined
 
     const protectedRoutes = ['dashboard', 'favourites', 'update-password'];
-    const authRoutes = ['login', 'signup', 'home'];
+    const authRoutes = ['login', 'signup'];
 
     if (session) {
       // User is logged in.
@@ -138,6 +165,12 @@ export default function App() {
       {!isSupabaseConfigured && (
         <div className="bg-red-500/10 border-b border-red-500/20 p-2 text-center text-xs text-red-400">
           Supabase is not configured. Some features may not work. Please check your environment variables.
+        </div>
+      )}
+      {authError && (
+        <div className="bg-red-500/10 border-b border-red-500/20 p-3 text-center text-sm text-red-400 flex justify-between items-center">
+          <span><strong>Authentication Error:</strong> {authError}</span>
+          <button onClick={() => setAuthError(null)} className="text-red-400 hover:text-red-300 px-2">&times;</button>
         </div>
       )}
       {view === 'login' ? (

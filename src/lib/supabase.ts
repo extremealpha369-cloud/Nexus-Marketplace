@@ -7,4 +7,11 @@ if (!supabaseUrl || !supabaseKey) {
   console.error("Missing Supabase environment variables! Check your .env file.");
 }
 
-export const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", supabaseKey || "placeholder");
+export const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", supabaseKey || "placeholder", {
+  auth: {
+    flowType: 'implicit',
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    persistSession: true,
+  }
+});
