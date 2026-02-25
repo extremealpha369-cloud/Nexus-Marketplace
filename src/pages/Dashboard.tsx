@@ -1059,7 +1059,7 @@ const ProductCard = memo(({ product, onEdit, onDelete, onShare, onToggleVis, del
       </div>
       {product.description && <div className="product-desc">{product.description}</div>}
       {(product.tags || []).length > 0 && <div className="product-tags">{(product.tags || []).slice(0, 3).map((t) => <span key={t} className="product-tag">#{t}</span>)}{(product.tags || []).length > 3 && <span className="product-tag">+{(product.tags || []).length - 3}</span>}</div>}
-      <div className="product-info-line">{formatDate(new Date(product.created_at))} · {product.shares} shares</div>
+      <div className="product-info-line">{formatDate(new Date(product.created_at))} · {product.share_count || 0} shares</div>
       <div className="product-actions">
         <button className="action-btn edit" onClick={onEdit}><Icon.Edit /> Edit</button>
         <button className="action-btn share" onClick={onShare}><Icon.Share /> Share</button>
@@ -1232,7 +1232,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     total: products.length,
     public: products.filter((p) => p.visibility === "public").length,
     private: products.filter((p) => p.visibility === "private").length,
-    totalShares: products.reduce((a, p) => a + p.shares, 0),
+    totalShares: products.reduce((a, p) => a + (p.share_count || 0), 0),
   }), [products]);
 
   const handleAdd = async (data: ProductFormData) => {
@@ -1258,10 +1258,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
         brand: data.brand,
         condition: data.condition,
         returns: data.returns,
-        visibility: data.visibility,
-        shares: 0,
-        views: 0,
-        shipping_price: 0
+        visibility: data.visibility
       };
 
       await productService.createProduct(newProduct);
@@ -1426,7 +1423,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
               <div className="profile-stats">
                 <div className="profile-stat"><div className="profile-stat-val">{products.length}</div><div className="profile-stat-label">Listed</div></div>
                 <div className="profile-stat"><div className="profile-stat-val">{products.filter(p=>p.visibility==="public").length}</div><div className="profile-stat-label">Public</div></div>
-                <div className="profile-stat"><div className="profile-stat-val">{products.reduce((a,p)=>a+p.shares,0)}</div><div className="profile-stat-label">Shares</div></div>
+                <div className="profile-stat"><div className="profile-stat-val">{products.reduce((a,p)=>a+(p.share_count || 0),0)}</div><div className="profile-stat-label">Shares</div></div>
               </div>
             </div>
           </div>

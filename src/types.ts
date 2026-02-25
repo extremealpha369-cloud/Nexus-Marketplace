@@ -23,14 +23,14 @@ export interface Product {
   brand: string;
   condition: string;
   returns: string;
-  shipping_price: number;
+  shipping_price?: number;
   contact_number: string;
   email: string;
   country: string;
   state: string;
   city: string;
-  views: number;
-  shares: number;
+  views?: number;
+  share_count: number;
   created_at: string;
 }
 

@@ -32,7 +32,7 @@ export const productService = {
     return data;
   },
 
-  async createProduct(product: Omit<Product, 'id' | 'created_at' | 'views' | 'shares'>): Promise<Product> {
+  async createProduct(product: Omit<Product, 'id' | 'created_at' | 'views' | 'share_count'>): Promise<Product> {
     const { data, error } = await supabase.from('products').insert(product).select().single();
     if (error) throw error;
     return data;
