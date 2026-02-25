@@ -77,6 +77,38 @@ create table orders (
 -- Policy to allow public viewing:
 -- create policy "Allow public viewing" on storage.objects for select using (bucket_id = 'products');
 
+-- FUNCTIONS & TRIGGERS
+
+-- Function to increment product views safely
+create or replace function increment_views(product_id uuid)
+returns void as $$
+begin
+  update products
+  set views = views + 1
+  where id = product_id;
+end;
+$$ language plpgsql security definer;
+
+-- Function to handle new user signup (auto-create profile)
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, name, avatar_url, role)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url',
+    'buyer'
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger for new user signup
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
 -- RLS POLICIES
 
 -- Profiles

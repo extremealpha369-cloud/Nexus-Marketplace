@@ -284,6 +284,7 @@ export default function Login({ onSwitch, onBack }: LoginProps) {
       const OAUTH_CALLBACK_URL = `${APP_URL}`;
         
       console.log(`Attempting ${provider} login with redirect: ${OAUTH_CALLBACK_URL}`);
+      console.log("IMPORTANT: Ensure this URL is added to your Supabase Auth Redirect URLs.");
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider,

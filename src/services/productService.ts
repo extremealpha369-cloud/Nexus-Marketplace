@@ -18,12 +18,16 @@ export const productService = {
       .select('*, user:profiles(*)')
       .eq('visibility', 'public')
       .order('created_at', { ascending: false });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Error fetching public products:', error);
+      return [];
+    }
     return data || [];
   },
 
   async getProduct(id: string): Promise<Product | null> {
-    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('products').select('*, user:profiles(*)').eq('id', id).single();
     if (error) throw error;
     return data;
   },
@@ -47,6 +51,8 @@ export const productService = {
 
   async incrementViews(id: string): Promise<void> {
     const { error } = await supabase.rpc('increment_views', { product_id: id });
-    if (error) console.error('Error incrementing views:', error);
+    if (error) {
+      console.error('Error incrementing views (RPC function might be missing):', error);
+    }
   }
 };
