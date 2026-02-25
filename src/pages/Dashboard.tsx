@@ -435,7 +435,7 @@ const GLOBAL_STYLES = `
   .upload-zone.drag { border-color: var(--purple-l); background: rgba(124,58,237,0.1); }
   .upload-text { font-size: 13px; color: var(--muted); }
   .upload-sub { font-size: 11px; color: var(--dim); }
-  .upload-preview { width: 100%; height: 140px; border-radius: 9px; overflow: hidden; position: relative; }
+  .upload-preview { width: 100%; aspect-ratio: 4/3; border-radius: 9px; overflow: hidden; position: relative; }
   .upload-preview img { width: 100%; height: 100%; object-fit: cover; }
   .upload-remove {
     position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 5px;
@@ -445,7 +445,7 @@ const GLOBAL_STYLES = `
   }
   .upload-remove:hover { background: rgba(248,113,113,0.7); }
   .ref-images-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .ref-image-item { aspect-ratio: 1; border-radius: 7px; overflow: hidden; position: relative; border: 1px solid var(--border); }
+  .ref-image-item { aspect-ratio: 4/3; border-radius: 7px; overflow: hidden; position: relative; border: 1px solid var(--border); }
   .ref-image-item img { width: 100%; height: 100%; object-fit: cover; }
 
   /* Category grid */

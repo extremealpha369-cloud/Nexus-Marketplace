@@ -3,17 +3,6 @@ import { supabase } from '../lib/supabase';
 export const storageService = {
   async uploadImage(file: File, bucket: string = 'products'): Promise<string | null> {
     try {
-      // Ensure bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
-      if (!buckets?.find(b => b.name === bucket)) {
-        const { error: createError } = await supabase.storage.createBucket(bucket, {
-          public: true,
-          fileSizeLimit: 5242880, // 5MB
-          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp']
-        });
-        if (createError) console.warn('Bucket creation warning:', createError);
-      }
-
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
@@ -26,6 +15,9 @@ export const storageService = {
         });
 
       if (uploadError) {
+        if (uploadError.message.includes("Bucket not found")) {
+          throw new Error(`Bucket '${bucket}' not found. Please run the SQL in src/lib/storage_setup.sql in your Supabase SQL Editor.`);
+        }
         throw uploadError;
       }
 
