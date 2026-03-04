@@ -11,7 +11,7 @@ interface Seller {
   rating: number; sales: number; location: string; memberSince: string; bio: string; avatarGradient: string;
 }
 interface UserReview {
-  id: string; productId: string; rating: number; text: string; date: Date;
+  id: string; productId: string; rating: number; text: string; date: Date; replies?: any[];
 }
 interface Product {
   id: string; title: string; description: string; price: number; originalPrice?: number;
@@ -67,7 +67,7 @@ function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
 // ── REVIEW MODAL ─────────────────────────────────────────────────────────────
 function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose }: {
   product: Product; userReviews: UserReview[];
-  onSubmit: (productId: string, rating: number, text: string) => void;
+  onSubmit: (productId: string, productOwnerId: string, rating: number, text: string) => void;
   onEdit: (id: string, rating: number, text: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -84,7 +84,7 @@ function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose
     if (!text.trim()) return;
     if (existing && !editMode) return;
     if (existing && editMode) { onEdit(existing.id, rating, text.trim()); }
-    else { onSubmit(product.id, rating, text.trim()); }
+    else { onSubmit(product.id, product.seller.id, rating, text.trim()); }
     onClose();
   };
 
@@ -113,6 +113,12 @@ function ReviewModal({ product, userReviews, onSubmit, onEdit, onDelete, onClose
                 </div>
                 <div style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.7, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(130,80,255,0.1)", borderRadius: 10, padding: "12px 14px" }}>"{existing.text}"</div>
                 <div style={{ fontSize: 11, color: "#4a4a6a", marginTop: 8, fontFamily: "'Fira Code', monospace" }}>Posted on {existing.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                {existing.replies && existing.replies.length > 0 && (
+                  <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(124,58,237,0.05)", border: "1px solid rgba(168,85,247,0.15)", borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: "#c084fc", fontWeight: 600, marginBottom: 4, fontFamily: "'Fira Code', monospace" }}>Seller Reply</div>
+                    <div style={{ fontSize: 12, color: "#7b7a9a" }}>{existing.replies[0].reply_text}</div>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => { setRating(existing.rating); setText(existing.text); setEditMode(true); }} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "rgba(124,58,237,0.1)", border: "1px solid rgba(168,85,247,0.3)", color: "#c084fc", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit', sans-serif" }}>✏ Edit Review</button>
@@ -208,6 +214,12 @@ function AllReviewsModal({ product, userReviews, productReviews, onClose, onOpen
                   <Stars rating={r.rating} size={12} />
                 </div>
                 <p style={{ fontSize: 13, color: "#7b7a9a", lineHeight: 1.6 }}>"{r.text}"</p>
+                {r.replies && r.replies.length > 0 && (
+                  <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(124,58,237,0.05)", border: "1px solid rgba(168,85,247,0.15)", borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: "#c084fc", fontWeight: 600, marginBottom: 4, fontFamily: "'Fira Code', monospace" }}>Seller Reply</div>
+                    <div style={{ fontSize: 12, color: "#7b7a9a" }}>{r.replies[0].reply_text}</div>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -652,8 +664,9 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
         initials: (r.user?.name || "A").slice(0, 2).toUpperCase(),
         color: "linear-gradient(135deg,#0ea5e9,#6366f1)", // Mock color
         rating: r.rating,
-        text: r.text,
-        date: new Date(r.created_at)
+        text: r.review_text,
+        date: new Date(r.created_at),
+        replies: r.replies || []
       }));
       setProductReviews(mapped);
     } catch (error) {
@@ -670,8 +683,9 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
         id: r.id,
         productId: r.product_id,
         rating: r.rating,
-        text: r.text,
-        date: new Date(r.created_at)
+        text: r.review_text,
+        date: new Date(r.created_at),
+        replies: r.replies || []
       }));
       setUserReviews(mapped);
     } catch (error) {
@@ -776,7 +790,7 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     }
   };
 
-  const handleSubmitReview = useCallback(async (productId: string, rating: number, text: string) => {
+  const handleSubmitReview = useCallback(async (productId: string, productOwnerId: string, rating: number, text: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         alert("Please login to review");
@@ -784,34 +798,42 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     }
     try {
         const newReview = await reviewService.createReview({
-            user_id: user.id,
+            reviewer_id: user.id,
+            reviewer_email: user.email || "",
+            product_owner_id: productOwnerId,
             product_id: productId,
             rating,
-            text
+            review_text: text
         });
         const mapped: UserReview = {
             id: newReview.id,
             productId: newReview.product_id,
             rating: newReview.rating,
-            text: newReview.text,
-            date: new Date(newReview.created_at)
+            text: newReview.review_text,
+            date: new Date(newReview.created_at),
+            replies: []
         };
         setUserReviews(prev => [...prev, mapped]);
+        // Also update product reviews if we are viewing that product
+        if (reviewProduct?.id === productId) {
+             fetchProductReviews(productId);
+        }
     } catch (error) {
         console.error("Error submitting review:", error);
         alert("Failed to submit review");
     }
-  }, []);
+  }, [reviewProduct]);
 
   const handleEditReview = useCallback(async (id: string, rating: number, text: string) => {
     try {
-        await reviewService.updateReview(id, { rating, text });
+        await reviewService.updateReview(id, { rating, review_text: text });
         setUserReviews(prev => prev.map(r => r.id === id ? { ...r, rating, text } : r));
+        if (reviewProduct) fetchProductReviews(reviewProduct.id);
     } catch (error) {
         console.error("Error updating review:", error);
         alert("Failed to update review");
     }
-  }, []);
+  }, [reviewProduct]);
 
   const handleDeleteReview = useCallback(async (id: string) => {
     try {

@@ -1093,12 +1093,13 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
   const [replyInput, setReplyInput] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [editingReply, setEditingReply] = useState(false);
-  const [editReplyText, setEditReplyText] = useState(review.reply_text || "");
+  const existingReply = review.replies && review.replies.length > 0 ? review.replies[0] : null;
+  const [editReplyText, setEditReplyText] = useState(existingReply?.reply_text || "");
 
   const reviewerName = review.user?.name || "Unknown User";
   const initials = reviewerName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const productName = review.product?.name || "Unknown Product";
-  const replied = !!review.reply_text;
+  const replied = !!existingReply;
 
   const submitReply = useCallback(() => {
     if (!replyInput.trim()) return;
@@ -1125,14 +1126,14 @@ const ReviewCard = memo(({ review, onReply, onEditReply }: { review: Review; onR
         <div className="review-stars">{[1,2,3,4,5].map(s => <span key={s} style={{ fontSize: 11 }}>{s <= review.rating ? "⭐" : "☆"}</span>)}</div>
       </div>
       <div className="review-product-tag">📦 {productName}</div>
-      <div className="review-text">"{review.text}"</div>
+      <div className="review-text">"{review.review_text}"</div>
 
-      {replied && review.reply_text && !editingReply && (
+      {replied && existingReply && !editingReply && (
         <div className="review-reply-box">
           <div className="review-reply-label">↩ Your reply</div>
-          <div className="review-reply-text">{review.reply_text}</div>
+          <div className="review-reply-text">{existingReply.reply_text}</div>
           <div style={{ marginTop: 8 }}>
-            <button className="action-btn edit" style={{ fontSize: 11 }} onClick={() => { setEditReplyText(review.reply_text || ""); setEditingReply(true); }}><Icon.Edit /> Edit reply</button>
+            <button className="action-btn edit" style={{ fontSize: 11 }} onClick={() => { setEditReplyText(existingReply.reply_text || ""); setEditingReply(true); }}><Icon.Edit /> Edit reply</button>
           </div>
         </div>
       )}
@@ -1177,6 +1178,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
 
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [activeTab, setActiveTab] = useState<'products' | 'reviews' | 'orders'>('products');
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<Category | "All">("All");
   const [visFilter, setVisFilter] = useState<"all" | "public" | "private">("all");
@@ -1197,11 +1199,55 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
   const userId = user?.id?.slice(0, 8)?.toUpperCase() || "UNKNOWN";
   const userRole = "Seller · Verified"; // Mock role for now
 
+  const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
+    clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchProducts();
+      fetchReviews();
     }
   }, [user]);
+
+  const fetchReviews = async () => {
+    if (!user) return;
+    try {
+      const data = await reviewService.getSellerReviews(user.id);
+      setReviews(data);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+    }
+  };
+
+  const handleReply = useCallback(async (reviewId: string, text: string) => {
+    if (!user) return;
+    try {
+      const newReply = await reviewService.replyToReview(reviewId, user.id, text);
+      setReviews(prev => prev.map(r => {
+        if (r.id === reviewId) {
+            return { ...r, replies: [...(r.replies || []), newReply] };
+        }
+        return r;
+      }));
+      showToast("Reply posted!");
+    } catch (error: any) {
+      console.error("Error replying:", error);
+      showToast(error.message || "Failed to reply", "error");
+    }
+  }, [user, showToast]);
+
+  const handleEditReply = useCallback(async (reviewId: string, text: string) => {
+    // Edit reply logic if needed (not implemented in service yet)
+    // For now, just re-post (which might fail or create duplicate depending on backend)
+    // Assuming backend handles it or we implement updateReply
+    // Since we don't have updateReply in service, we'll skip for now or use replyToReview
+    // But replyToReview creates a NEW reply.
+    // Let's just alert for now.
+    alert("Edit reply not implemented yet");
+  }, []);
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -1214,11 +1260,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     }
   };
 
-  const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
-    clearTimeout(toastTimer.current);
-    setToast({ msg, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3000);
-  }, []);
+
 
   const filtered = useMemo(() => products.filter((p) => {
     const q = search.toLowerCase();
@@ -1339,27 +1381,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
     }
   };
 
-  const handleReply = useCallback(async (reviewId: string, text: string) => {
-    try {
-      await reviewService.replyToReview(reviewId, text);
-      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply_text: text, replied_at: new Date().toISOString() } : r));
-      showToast("Reply posted!");
-    } catch (error: any) {
-      console.error("Error replying:", error);
-      showToast(error.message || "Failed to reply", "error");
-    }
-  }, [showToast]);
 
-  const handleEditReply = useCallback(async (reviewId: string, text: string) => {
-    try {
-      await reviewService.replyToReview(reviewId, text);
-      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply_text: text, replied_at: new Date().toISOString() } : r));
-      showToast("Reply updated!");
-    } catch (error: any) {
-      console.error("Error updating reply:", error);
-      showToast(error.message || "Failed to update reply", "error");
-    }
-  }, [showToast]);
 
   const copyLink = useCallback((id: string) => {
     navigator.clipboard.writeText(`https://nexus.io/product/${id}`).catch(() => {});
@@ -1430,7 +1452,19 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
 
           <div className="sidebar-section">MAIN</div>
           <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}><Icon.Home /><span>Home</span></a>
-          <div className="nav-item active"><Icon.Package /><span>Dashboard</span></div>
+          
+          <div className="sidebar-section">MANAGE</div>
+          <button className={`nav-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>
+            <Icon.Package /><span>Products</span>
+          </button>
+          <button className={`nav-item ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
+            <Icon.MessageSquare /><span>Reviews</span>
+          </button>
+          <button className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+            <Icon.ShoppingBag /><span>Orders</span>
+          </button>
+
+          <div className="sidebar-section">MARKETPLACE</div>
           <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }}><Icon.ShoppingBag /><span>Buy</span></a>
           <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('favourites'); }}><Icon.Heart /><span>Favourites</span></a>
           <div className="nav-item"><Icon.Settings /><span>Settings</span></div>
@@ -1460,21 +1494,31 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
         {/* ── MAIN ── */}
         <div className="main">
           <header className="topbar">
-            <div className="topbar-title">My Products</div>
+            <div className="topbar-title">
+              {activeTab === 'products' && 'My Products'}
+              {activeTab === 'reviews' && 'Reviews'}
+              {activeTab === 'orders' && 'Orders'}
+            </div>
             <div className="topbar-right">
-              <div className="search-wrap">
-                <Icon.Search />
-                <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <button className="btn-add" onClick={() => setShowAdd(true)}>
-                <Icon.Plus /><span>List Product</span>
-              </button>
+              {activeTab === 'products' && (
+                <div className="search-wrap">
+                  <Icon.Search />
+                  <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+              )}
+              {activeTab === 'products' && (
+                <button className="btn-add" onClick={() => setShowAdd(true)}>
+                  <Icon.Plus /><span>List Product</span>
+                </button>
+              )}
             </div>
           </header>
 
           <div className="content">
-            {/* Stats */}
-            <div className="stats-row">
+            {activeTab === 'products' && (
+              <>
+                {/* Stats */}
+                <div className="stats-row">
               <div className="stat-card"><div className="stat-label">Total Products</div><div className="stat-value">{stats.total}</div><div className="stat-sub">All listings</div><div className="stat-icon">📦</div></div>
               <div className="stat-card"><div className="stat-label">Public</div><div className="stat-value" style={{ color: "var(--green)" }}>{stats.public}</div><div className="stat-sub">Visible to buyers</div><div className="stat-icon">🌐</div></div>
               <div className="stat-card"><div className="stat-label">Private</div><div className="stat-value" style={{ color: "var(--red)" }}>{stats.private}</div><div className="stat-sub">Hidden listings</div><div className="stat-icon">🔒</div></div>
@@ -1513,6 +1557,46 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
                 {filtered.map((p, i) => <ProductCardList key={p.id} product={p} delay={i} onEdit={() => setEditTarget(p)} onDelete={() => setDeleteTarget(p)} onShare={() => setShareTarget(p)} onToggleVis={() => handleToggleVis(p.id)} />)}
               </div>
             )}
+            </>
+          )}
+
+          {activeTab === 'reviews' && (
+            <div className="reviews-section">
+              <div className="reviews-header">
+                <div className="reviews-title">
+                  Product Reviews <span className="reviews-count">{reviews.length}</span>
+                </div>
+                <div className="reviews-avg">
+                  <Icon.Heart /> 
+                  {reviews.length > 0 
+                    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) 
+                    : "0.0"}
+                </div>
+              </div>
+              
+              <div className="reviews-grid">
+                {reviews.length === 0 ? (
+                  <div className="empty-state">
+                    <div style={{ fontSize: 40, marginBottom: 10 }}>💬</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#f0eeff" }}>No reviews yet</div>
+                    <div style={{ fontSize: 13, color: "#7b7a9a" }}>When customers review your products, they'll appear here.</div>
+                  </div>
+                ) : (
+                  reviews.map(review => (
+                    <ReviewCard key={review.id} review={review} onReply={handleReply} onEditReply={handleEditReply} />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'orders' && (
+            <div className="empty-state">
+               <div style={{ fontSize: 40, marginBottom: 10 }}>🛍️</div>
+               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#f0eeff" }}>No orders yet</div>
+               <div style={{ fontSize: 13, color: "#7b7a9a" }}>Your sales and order history will appear here.</div>
+            </div>
+          )}
 
             {/* Reviews */}
             <div className="reviews-section">

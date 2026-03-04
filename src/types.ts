@@ -34,17 +34,27 @@ export interface Product {
   created_at: string;
 }
 
+export interface ReviewReply {
+  id: string;
+  review_id: string;
+  owner_id: string;
+  reply_text: string;
+  replied_at: string;
+  owner?: Profile; // Joined data
+}
+
 export interface Review {
   id: string;
   product_id: string;
-  user_id: string;
+  reviewer_id: string;
+  reviewer_email: string;
+  product_owner_id: string;
   rating: number;
-  text: string;
-  reply_text?: string;
-  replied_at?: string;
+  review_text: string;
   created_at: string;
-  user?: Profile; // Joined data
+  user?: Profile; // Joined data (reviewer)
   product?: Partial<Product>; // Joined data
+  replies?: ReviewReply[]; // Joined data
 }
 
 export interface Favourite {

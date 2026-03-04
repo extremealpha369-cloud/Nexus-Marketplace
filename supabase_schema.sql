@@ -1,60 +1,80 @@
--- Run this in your Supabase SQL Editor to create the products table
-
-CREATE TABLE IF NOT EXISTS public.products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  thumbnail TEXT,
-  reference_images JSONB DEFAULT '[]'::jsonb,
-  contact_number TEXT,
-  email TEXT,
-  price NUMERIC NOT NULL DEFAULT 0,
-  country TEXT,
-  state TEXT,
-  city TEXT,
-  tags JSONB DEFAULT '[]'::jsonb,
-  category TEXT,
-  brand TEXT,
-  condition TEXT,
-  returns TEXT,
-  visibility TEXT DEFAULT 'private',
-  share_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+-- Create product_reviews table
+create table if not exists product_reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid references products(id) on delete cascade,
+  reviewer_id uuid references profiles(id) on delete cascade,
+  reviewer_email text not null,
+  product_owner_id uuid references profiles(id) on delete cascade,
+  rating integer check (rating >= 1 and rating <= 5),
+  review_text text not null,
+  created_at timestamp with time zone default now()
 );
 
--- Enable Row Level Security
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+-- Create review_replies table
+create table if not exists review_replies (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid references product_reviews(id) on delete cascade,
+  owner_id uuid references profiles(id) on delete cascade,
+  reply_text text not null,
+  replied_at timestamp with time zone default now()
+);
 
--- Create policies
+-- Enable RLS
+alter table product_reviews enable row level security;
+alter table review_replies enable row level security;
 
--- Policy: Users can view public products
-CREATE POLICY "Anyone can view public products"
-  ON public.products
-  FOR SELECT
-  USING (visibility = 'public');
+-- Policies for product_reviews
 
--- Policy: Users can view their own products (even if private)
-CREATE POLICY "Users can view their own products"
-  ON public.products
-  FOR SELECT
-  USING (auth.uid() = user_id);
+-- Allow anyone to read reviews (public)
+create policy "Reviews are public"
+  on product_reviews for select
+  using (true);
 
--- Policy: Users can insert their own products
-CREATE POLICY "Users can insert their own products"
-  ON public.products
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+-- Allow authenticated users to insert reviews
+create policy "Authenticated users can insert reviews"
+  on product_reviews for insert
+  with check (auth.uid() = reviewer_id);
 
--- Policy: Users can update their own products
-CREATE POLICY "Users can update their own products"
-  ON public.products
-  FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+-- Allow reviewers to update their own reviews
+create policy "Reviewers can update their own reviews"
+  on product_reviews for update
+  using (auth.uid() = reviewer_id);
 
--- Policy: Users can delete their own products
-CREATE POLICY "Users can delete their own products"
-  ON public.products
-  FOR DELETE
-  USING (auth.uid() = user_id);
+-- Allow reviewers to delete their own reviews
+create policy "Reviewers can delete their own reviews"
+  on product_reviews for delete
+  using (auth.uid() = reviewer_id);
+
+-- Policies for review_replies
+
+-- Allow anyone to read replies (public)
+create policy "Replies are public"
+  on review_replies for select
+  using (true);
+
+-- Allow product owners to insert replies
+-- We need to check if the user is the owner of the product associated with the review
+-- This requires a join or a subquery. For simplicity and performance in RLS, 
+-- we often rely on the application to set the correct owner_id, 
+-- but strictly we should check against the product_reviews -> product_owner_id.
+
+create policy "Product owners can insert replies"
+  on review_replies for insert
+  with check (
+    auth.uid() = owner_id and
+    exists (
+      select 1 from product_reviews
+      where product_reviews.id = review_id
+      and product_reviews.product_owner_id = auth.uid()
+    )
+  );
+
+-- Allow product owners to update their own replies
+create policy "Product owners can update their own replies"
+  on review_replies for update
+  using (auth.uid() = owner_id);
+
+-- Allow product owners to delete their own replies
+create policy "Product owners can delete their own replies"
+  on review_replies for delete
+  using (auth.uid() = owner_id);

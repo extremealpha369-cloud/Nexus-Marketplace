@@ -1,10 +1,10 @@
 import { supabase } from '../lib/supabase';
-import { Review } from '../types';
+import { Review, ReviewReply } from '../types';
 
 export const reviewService = {
   async getReviews(productId: string): Promise<Review[]> {
     const { data: reviewsData, error } = await supabase
-      .from('reviews')
+      .from('product_reviews')
       .select('*')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
@@ -12,25 +12,42 @@ export const reviewService = {
     if (error) throw error;
     if (!reviewsData || reviewsData.length === 0) return [];
 
-    const userIds = [...new Set(reviewsData.map(r => r.user_id))];
+    // Fetch reviewers
+    const reviewerIds = [...new Set(reviewsData.map(r => r.reviewer_id))];
     const { data: profilesData } = await supabase
       .from('profiles')
       .select('id, name, avatar_url')
-      .in('id', userIds);
+      .in('id', reviewerIds);
 
     const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
 
+    // Fetch replies
+    const reviewIds = reviewsData.map(r => r.id);
+    const { data: repliesData } = await supabase
+      .from('review_replies')
+      .select('*')
+      .in('review_id', reviewIds);
+
+    const repliesMap = new Map();
+    (repliesData || []).forEach(reply => {
+      if (!repliesMap.has(reply.review_id)) {
+        repliesMap.set(reply.review_id, []);
+      }
+      repliesMap.get(reply.review_id).push(reply);
+    });
+
     return reviewsData.map(r => ({
       ...r,
-      user: profilesMap.get(r.user_id) || null
+      user: profilesMap.get(r.reviewer_id) || null,
+      replies: repliesMap.get(r.id) || []
     }));
   },
 
   async getReviewsByUser(userId: string): Promise<Review[]> {
     const { data: reviewsData, error } = await supabase
-      .from('reviews')
+      .from('product_reviews')
       .select('*')
-      .eq('user_id', userId)
+      .eq('reviewer_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -44,54 +61,83 @@ export const reviewService = {
 
     const productsMap = new Map((productsData || []).map(p => [p.id, p]));
 
+    // Fetch replies
+    const reviewIds = reviewsData.map(r => r.id);
+    const { data: repliesData } = await supabase
+      .from('review_replies')
+      .select('*')
+      .in('review_id', reviewIds);
+
+    const repliesMap = new Map();
+    (repliesData || []).forEach(reply => {
+      if (!repliesMap.has(reply.review_id)) {
+        repliesMap.set(reply.review_id, []);
+      }
+      repliesMap.get(reply.review_id).push(reply);
+    });
+
     return reviewsData.map(r => ({
       ...r,
-      product: productsMap.get(r.product_id) || null
+      product: productsMap.get(r.product_id) || null,
+      replies: repliesMap.get(r.id) || []
     }));
   },
 
   async getSellerReviews(sellerId: string): Promise<Review[]> {
-    // 1. Get products by seller first
-    const { data: productsData, error: productsError } = await supabase
-      .from('products')
-      .select('id, name, user_id')
-      .eq('user_id', sellerId);
-
-    if (productsError) throw productsError;
-    if (!productsData || productsData.length === 0) return [];
-
-    const productIds = productsData.map(p => p.id);
-    const productsMap = new Map(productsData.map(p => [p.id, p]));
-
-    // 2. Get reviews for these products
+    // 1. Get reviews for products owned by seller
     const { data: reviewsData, error: reviewsError } = await supabase
-      .from('reviews')
+      .from('product_reviews')
       .select('*')
-      .in('product_id', productIds)
+      .eq('product_owner_id', sellerId)
       .order('created_at', { ascending: false });
 
     if (reviewsError) throw reviewsError;
     if (!reviewsData || reviewsData.length === 0) return [];
 
+    // 2. Get products details
+    const productIds = [...new Set(reviewsData.map(r => r.product_id))];
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('id, name')
+      .in('id', productIds);
+    
+    const productsMap = new Map((productsData || []).map(p => [p.id, p]));
+
     // 3. Get profiles for reviewers
-    const userIds = [...new Set(reviewsData.map(r => r.user_id))];
+    const reviewerIds = [...new Set(reviewsData.map(r => r.reviewer_id))];
     const { data: profilesData } = await supabase
       .from('profiles')
       .select('id, name, avatar_url')
-      .in('id', userIds);
+      .in('id', reviewerIds);
 
     const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
 
+    // 4. Get replies
+    const reviewIds = reviewsData.map(r => r.id);
+    const { data: repliesData } = await supabase
+      .from('review_replies')
+      .select('*')
+      .in('review_id', reviewIds);
+
+    const repliesMap = new Map();
+    (repliesData || []).forEach(reply => {
+      if (!repliesMap.has(reply.review_id)) {
+        repliesMap.set(reply.review_id, []);
+      }
+      repliesMap.get(reply.review_id).push(reply);
+    });
+
     return reviewsData.map(r => ({
       ...r,
-      user: profilesMap.get(r.user_id) || null,
-      product: productsMap.get(r.product_id) || null
+      user: profilesMap.get(r.reviewer_id) || null,
+      product: productsMap.get(r.product_id) || null,
+      replies: repliesMap.get(r.id) || []
     }));
   },
 
-  async createReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review> {
+  async createReview(review: Omit<Review, 'id' | 'created_at' | 'user' | 'product' | 'replies'>): Promise<Review> {
     const { data: reviewData, error } = await supabase
-      .from('reviews')
+      .from('product_reviews')
       .insert(review)
       .select('*')
       .single();
@@ -101,32 +147,39 @@ export const reviewService = {
     const { data: profileData } = await supabase
       .from('profiles')
       .select('id, name, avatar_url')
-      .eq('id', reviewData.user_id)
+      .eq('id', reviewData.reviewer_id)
       .single();
 
     return {
       ...reviewData,
-      user: profileData || null
+      user: profileData || null,
+      replies: []
     };
   },
 
   async updateReview(id: string, updates: Partial<Review>): Promise<Review> {
-    const { data, error } = await supabase.from('reviews').update(updates).eq('id', id).select().single();
+    const { data, error } = await supabase.from('product_reviews').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data;
   },
 
   async deleteReview(id: string): Promise<void> {
-    const { error } = await supabase.from('reviews').delete().eq('id', id);
+    const { error } = await supabase.from('product_reviews').delete().eq('id', id);
     if (error) throw error;
   },
 
-  async replyToReview(reviewId: string, text: string): Promise<void> {
-    const { error } = await supabase
-      .from('reviews')
-      .update({ reply_text: text, replied_at: new Date().toISOString() })
-      .eq('id', reviewId);
+  async replyToReview(reviewId: string, ownerId: string, text: string): Promise<ReviewReply> {
+    const { data, error } = await supabase
+      .from('review_replies')
+      .insert({
+        review_id: reviewId,
+        owner_id: ownerId,
+        reply_text: text
+      })
+      .select('*')
+      .single();
 
     if (error) throw error;
+    return data;
   }
 };
