@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { supabase } from "../lib/supabase";
 import { productService } from "../services/productService";
 import { reviewService } from "../services/reviewService";
+import { favouriteService } from "../services/favouriteService";
 import { Product as ProductType, Review } from "../types";
 
 // ── TYPES ──────────────────────────────────────────────────────────────────
@@ -600,7 +601,19 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
   useEffect(() => {
     fetchPublicProducts();
     fetchUserReviews();
-  }, []);
+    fetchFavourites();
+  }, [search, sortBy, activeCategory, filters]);
+
+  const fetchFavourites = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const favs = await favouriteService.getFavourites(user.id);
+      setSavedIds(new Set(favs.map(f => f.product_id)));
+    } catch (error) {
+      console.error("Error fetching favourites:", error);
+    }
+  };
 
   const fetchProductReviews = async (productId: string) => {
     try {
@@ -652,7 +665,15 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
 
   const fetchPublicProducts = async () => {
     try {
-      const data = await productService.getPublicProducts();
+      const data = await productService.getPublicProducts({
+        search,
+        category: activeCategory !== "All" ? activeCategory : filters.category,
+        minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
+        maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
+        condition: filters.condition,
+        brand: filters.brand,
+        sortBy
+      });
 
       const formattedProducts: Product[] = (data || []).map((p: any) => {
         const u = p.user;
@@ -690,8 +711,8 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
           shippingPrice: 0,
           returns: p.returns || "No returns",
           postedAt: new Date(p.created_at).toLocaleDateString(),
-          views: 0,
-          saves: p.share_count || 0,
+          views: p.views || 0,
+          saves: p.shares || 0, // Assuming shares maps to saves
           featured: false
         };
       });
@@ -702,7 +723,30 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     }
   };
 
-  const toggleSave = (id: string) => setSavedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSave = async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Please login to save products");
+      return;
+    }
+
+    const isSaved = savedIds.has(id);
+    // Optimistic update
+    setSavedIds(prev => { const n = new Set(prev); isSaved ? n.delete(id) : n.add(id); return n; });
+
+    try {
+      if (isSaved) {
+        await favouriteService.removeFavourite(user.id, id);
+      } else {
+        await favouriteService.addFavourite(user.id, id);
+      }
+    } catch (error) {
+      console.error("Error toggling favourite:", error);
+      // Revert on error
+      setSavedIds(prev => { const n = new Set(prev); !isSaved ? n.delete(id) : n.add(id); return n; });
+      alert("Failed to update favourite");
+    }
+  };
 
   const handleSubmitReview = useCallback(async (productId: string, rating: number, text: string) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -758,36 +802,8 @@ export default function BuyPage({ onNavigate }: { onNavigate: (page: 'login' | '
     filters.country !== "", filters.state !== "", filters.city !== "",
   ].filter(Boolean).length;
 
-  const filtered = products.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || (p.title || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.tags || []).some(t => t.includes(q)) || (p.seller?.name || "").toLowerCase().includes(q) || (p.brand || "").toLowerCase().includes(q);
-    const cat = activeCategory === "All" || p.category === activeCategory;
-    const fCat = filters.category === "All" || p.category === filters.category;
-    const fCond = filters.condition === "Any" || p.condition === filters.condition;
-    const fBrand = filters.brand === "All Brands" || p.brand === filters.brand;
-    const fMin = !filters.minPrice || p.price >= Number(filters.minPrice);
-    const fMax = !filters.maxPrice || p.price <= Number(filters.maxPrice);
-    const fRating = p.rating >= filters.minRating;
-    const fFreeShip = !filters.freeShipping || p.shippingPrice === 0;
-    const fFeatured = !filters.featured || p.featured;
-    const fStock = !filters.inStock || p.stock > 0;
-    const fVerified = !filters.verified || p.seller.verified;
-    // Location filters (case-insensitive partial match against seller location)
-    const sellerLoc = (p.seller?.location || "").toLowerCase();
-    const fCountry = !filters.country || sellerLoc.includes(filters.country.toLowerCase());
-    const fState = !filters.state || sellerLoc.includes(filters.state.toLowerCase());
-    const fCity = !filters.city || sellerLoc.includes(filters.city.toLowerCase());
-    return matchSearch && cat && fCat && fCond && fBrand && fMin && fMax && fRating && fFreeShip && fFeatured && fStock && fVerified && fCountry && fState && fCity;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "Price: Low to High": return a.price - b.price;
-      case "Price: High to Low": return b.price - a.price;
-      case "Most Popular": return b.views - a.views;
-      case "Best Rated": return b.rating - a.rating;
-      case "Most Saved": return b.saves - a.saves;
-      default: return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-    }
-  });
+  // No client-side filtering anymore
+  const filtered = products;
 
   return (
     <>
