@@ -1452,21 +1452,15 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
 
           <div className="sidebar-section">MAIN</div>
           <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}><Icon.Home /><span>Home</span></a>
-          
-          <div className="sidebar-section">MANAGE</div>
-          <button className={`nav-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>
-            <Icon.Package /><span>Products</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
-            <Icon.MessageSquare /><span>Reviews</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-            <Icon.ShoppingBag /><span>Orders</span>
-          </button>
-
-          <div className="sidebar-section">MARKETPLACE</div>
-          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }}><Icon.ShoppingBag /><span>Buy</span></a>
-          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('favourites'); }}><Icon.Heart /><span>Favourites</span></a>
+          <div className="nav-item active">
+            <Icon.LayoutGrid /><span>Dashboard</span>
+          </div>
+          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('buy'); }}>
+            <Icon.ShoppingBag /><span>Buy</span>
+          </a>
+          <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); onNavigate('favourites'); }}>
+            <Icon.Heart /><span>Favourites</span>
+          </a>
           <div className="nav-item"><Icon.Settings /><span>Settings</span></div>
 
           <div className="sidebar-section">LEGAL</div>
@@ -1494,11 +1488,7 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
         {/* ── MAIN ── */}
         <div className="main">
           <header className="topbar">
-            <div className="topbar-title">
-              {activeTab === 'products' && 'My Products'}
-              {activeTab === 'reviews' && 'Reviews'}
-              {activeTab === 'orders' && 'Orders'}
-            </div>
+            <div className="topbar-title">Seller Dashboard</div>
             <div className="topbar-right">
               {activeTab === 'products' && (
                 <div className="search-wrap">
@@ -1513,6 +1503,66 @@ export default function Dashboard({ onNavigate, session }: { onNavigate: (page: 
               )}
             </div>
           </header>
+
+          <div style={{ padding: '0 30px', marginBottom: 20, display: 'flex', gap: 20, borderBottom: '1px solid rgba(130,80,255,0.1)' }}>
+            <button 
+              onClick={() => setActiveTab('products')}
+              style={{
+                padding: '12px 0',
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'products' ? '2px solid #c084fc' : '2px solid transparent',
+                color: activeTab === 'products' ? '#c084fc' : '#7b7a9a',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: "'Outfit', sans-serif",
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <Icon.Package /> Products
+            </button>
+            <button 
+              onClick={() => setActiveTab('reviews')}
+              style={{
+                padding: '12px 0',
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'reviews' ? '2px solid #c084fc' : '2px solid transparent',
+                color: activeTab === 'reviews' ? '#c084fc' : '#7b7a9a',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: "'Outfit', sans-serif",
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <Icon.MessageSquare /> Reviews
+            </button>
+            <button 
+              onClick={() => setActiveTab('orders')}
+              style={{
+                padding: '12px 0',
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'orders' ? '2px solid #c084fc' : '2px solid transparent',
+                color: activeTab === 'orders' ? '#c084fc' : '#7b7a9a',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: "'Outfit', sans-serif",
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <Icon.ShoppingBag /> Orders
+            </button>
+          </div>
 
           <div className="content">
             {activeTab === 'products' && (
