@@ -365,13 +365,37 @@ function ProductModal({ product, onClose, saved, onSave, userReviews, productRev
           {/* Images */}
           <div style={{ width: window.innerWidth < 700 ? "100%" : "45%", minWidth: window.innerWidth < 700 ? "auto" : 280, flexShrink: 0, display: "flex", flexDirection: "column", background: "#08080f", borderRight: window.innerWidth < 700 ? "none" : "1px solid rgba(130,80,255,0.12)", borderBottom: window.innerWidth < 700 ? "1px solid rgba(130,80,255,0.12)" : "none" }}>
             <div style={{ flex: 1, minHeight: window.innerWidth < 700 ? 200 : 320, position: "relative" }}>
-              {activeImg === 0 ? <ThumbnailSVG gradient={product.thumbnailGradient} title={product.title} badge={product.badge} /> : <ImageSVG gradient={product.thumbnailGradient} index={activeImg - 1} />}
+              {activeImg === 0 ? (
+                product.thumbnail ? (
+                  <img src={product.thumbnail} alt={product.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <ThumbnailSVG gradient={product.thumbnailGradient} title={product.title} badge={product.badge} />
+                )
+              ) : (
+                product.images[activeImg - 1] ? (
+                  <img src={product.images[activeImg - 1]} alt={`Product view ${activeImg}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <ImageSVG gradient={product.thumbnailGradient} index={activeImg - 1} />
+                )
+              )}
             </div>
             <div style={{ display: "flex", gap: 6, padding: "10px 14px", overflowX: "auto" }}>
               {allImgs.map(imgIdx => (
                 <button key={imgIdx} onClick={() => setActiveImg(imgIdx)}
                   style={{ flexShrink: 0, width: 56, height: 56, borderRadius: 8, overflow: "hidden", border: `2px solid ${activeImg === imgIdx ? "#a855f7" : "rgba(130,80,255,0.2)"}`, cursor: "pointer", background: "none", padding: 0 }}>
-                  {imgIdx === 0 ? <ThumbnailSVG gradient={product.thumbnailGradient} title="" /> : <ImageSVG gradient={product.thumbnailGradient} index={imgIdx - 1} />}
+                  {imgIdx === 0 ? (
+                    product.thumbnail ? (
+                      <img src={product.thumbnail} alt="Thumbnail" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <ThumbnailSVG gradient={product.thumbnailGradient} title="" />
+                    )
+                  ) : (
+                    product.images[imgIdx - 1] ? (
+                      <img src={product.images[imgIdx - 1]} alt={`View ${imgIdx}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <ImageSVG gradient={product.thumbnailGradient} index={imgIdx - 1} />
+                    )
+                  )}
                 </button>
               ))}
             </div>
