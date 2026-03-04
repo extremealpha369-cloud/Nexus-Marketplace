@@ -234,7 +234,11 @@ function ProductCard({ product, onClick, saved, onSave, userReview }: { product:
       style={{ borderRadius: 20, overflow: "hidden", cursor: "pointer", border: `1px solid ${hovered ? "rgba(168,85,247,0.4)" : "rgba(130,80,255,0.14)"}`, background: "#111120", transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)", transform: hovered ? "translateY(-6px)" : "translateY(0)", boxShadow: hovered ? "0 24px 60px rgba(124,58,237,0.18)" : "0 2px 20px rgba(0,0,0,0.3)", position: "relative" }}>
       {/* Thumbnail */}
       <div onClick={onClick} style={{ height: 220, position: "relative", overflow: "hidden" }}>
-        <ThumbnailSVG gradient={product.thumbnailGradient} title={product.title} badge={product.badge} />
+        {product.thumbnail ? (
+          <img src={product.thumbnail} alt={product.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <ThumbnailSVG gradient={product.thumbnailGradient} title={product.title} badge={product.badge} />
+        )}
         {discount > 0 && <div style={{ position: "absolute", top: 12, right: 12, padding: "3px 10px", borderRadius: 6, background: "rgba(52,211,153,0.2)", border: "1px solid rgba(52,211,153,0.4)", fontSize: 11, fontWeight: 700, color: "#34d399", fontFamily: "'Fira Code', monospace" }}>-{discount}%</div>}
         <button onClick={e => { e.stopPropagation(); onSave(product.id); }}
           style={{ position: "absolute", bottom: 12, right: 12, width: 34, height: 34, borderRadius: "50%", border: `1px solid ${saved ? "rgba(168,85,247,0.6)" : "rgba(255,255,255,0.15)"}`, background: saved ? "rgba(124,58,237,0.4)" : "rgba(0,0,0,0.4)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)", transition: "all 0.2s" }}>

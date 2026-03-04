@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -18,6 +18,12 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  
+  // Track current view in ref for auth callback
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   useEffect(() => {
     // Safety timeout to prevent permanent loading screen
@@ -60,7 +66,8 @@ export default function App() {
           const authRoutes = ['login', 'signup'];
           const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
           
-          if (authRoutes.includes(view) || isOAuthCallback) {
+          // Use ref for initial check too, though view is likely 'home' here
+          if (authRoutes.includes(viewRef.current) || isOAuthCallback) {
              setView('dashboard');
           }
         }
@@ -78,8 +85,14 @@ export default function App() {
             const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
             
             if (event === 'SIGNED_IN') {
-              // Always go to dashboard on active sign in
-              setView('dashboard');
+              // Only redirect to dashboard if we are on login/signup or coming from OAuth
+              // This prevents redirecting away from valid pages like 'buy' if session refreshes
+              const currentView = viewRef.current;
+              const authRoutes = ['login', 'signup'];
+              
+              if (authRoutes.includes(currentView) || isOAuthCallback) {
+                setView('dashboard');
+              }
               
               // Clear the URL parameters after processing to keep the URL clean
               if (isOAuthCallback) {
@@ -88,7 +101,9 @@ export default function App() {
             } else if (event === 'INITIAL_SESSION') {
               // On initial load, only redirect if on auth pages or if returning from OAuth
               const authRoutes = ['login', 'signup'];
-              if (authRoutes.includes(view) || isOAuthCallback) {
+              const currentView = viewRef.current;
+              
+              if (authRoutes.includes(currentView) || isOAuthCallback) {
                  setView('dashboard');
                  
                  if (isOAuthCallback) {
